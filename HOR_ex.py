@@ -16,6 +16,7 @@ from visualization import *
 from connectorBehavior import *
 from odbAccess import *
 import csv
+import numpy as np
 
 
 def arithmetic_sequence(meshSize):
@@ -31,7 +32,28 @@ def write_data_csv(meshSize, loc_job, loc_empty):
     path = loc_job
     odb = session.openOdb(name=(path))
     step1 = odb.steps['Step-1']
+
     num = arithmetic_sequence(meshSize)
+
+    force_node = num[-9]
+    region = step1.historyRegions['Node CONCRETE-1.' + str(force_node)]
+    input_Data = region.historyOutputs['CF2'].data
+
+    path = loc_empty
+    file = 'input.csv'
+    with open(os.path.join(path, file), 'w') as csv.file:
+        pass
+
+    path = loc_empty + '/' + file
+    file1 = open(path, 'wb')
+    writer = csv.writer(file1, dialect='excel')
+    writer.writerow(["time_step", "force"])
+
+    for row in input_Data:
+        writer.writerow(row)
+    print("Write data sucessful")
+    file1.close()
+
     for i in num:
         region = step1.historyRegions['Node CONCRETE-1.' + str(i)]
         # region = step1.historyRegions.items()
@@ -53,4 +75,6 @@ def write_data_csv(meshSize, loc_job, loc_empty):
         file1.close()
 
 
-write_data_csv(0.05, '/home/zhangzia/Schreibtisch/studienarbeit/practice', '/home/zhangzia/Schreibtisch/studienarbeit/practice/csv')
+write_data_csv(0.05, 'C:/temp/Job-1.odb', 'C:/Users/ZZY/Desktop/database')
+# code = arithmetic_sequence(0.05)
+# print(code)

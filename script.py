@@ -21,13 +21,22 @@ import sys
 import os
 
 
+# define noise center point area, r is the radius of this area, equal to the gravel's radius
+
 r = 5E-3
+
+# define noise area, N is the radius of noise area
+
 N = r
+
+# Length, depth, width describe the geometric parameter of the gravel grid
 # 0. 001 is to ensure that the value '1.45-2*r' can also be chosen, because the domain of arrange is [start, stop)
-L = 1.45 - 2*r + 0.0001
-D = 0.1 - 2*r + 0.0001
-Lstart = 0.01
-Dstart = 0.01
+# Depth is equal to width
+
+Length = 1.45 - 2*r + 0.0001
+Depth = 0.1 - 2*r + 0.0001
+Length_start = 0.01
+Depth_start = 0.01
 
 
 def get_arg(a, b):
@@ -39,9 +48,9 @@ def get_arg(a, b):
 
 def generate_grid(delta_x, delta_y, delta_z):
     grdi_list = []
-    x = [round(i, 2) for i in np.arange(Lstart, L, delta_x)]
-    y = [round(i, 2) for i in np.arange(Dstart, D, delta_y)]
-    z = [round(i, 2) for i in np.arange(Dstart, D, delta_z)]
+    x = [round(i, 2) for i in np.arange(Length_start, Length, delta_x)]
+    y = [round(i, 2) for i in np.arange(Depth_start, Depth, delta_y)]
+    z = [round(i, 2) for i in np.arange(Depth_start, Depth, delta_z)]
     for x_point in x:
         for y_point in y:
             for z_point in z:
@@ -53,10 +62,10 @@ def generate_grid(delta_x, delta_y, delta_z):
 
 
 def collide_check(a, b):
-    if Lstart - N < r:
-        raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'Lstart' again!")
-    if Dstart - N < r:
-        raise Exception("Error: gravels out of the boundary at rectangular-plane! Modify 'Dstart' again!")
+    if Length_start - N < r:
+        raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'Length_start' again!")
+    if Depth_start - N < r:
+        raise Exception("Error: gravels out of the boundary at rectangular-plane! Modify 'Depth_start' again!")
     else:
         print('Feasible at the boundary!')
         delta_x, delta_y, delta_z = get_arg(a, b)
@@ -70,6 +79,10 @@ def collide_check(a, b):
 
 
 session.journalOptions.setValues(replayGeometry=COORDINATE, recoverGeometry=COORDINATE)
+
+
+def set_work_directory(path):
+    os.chdir(path)
 
 
 # create concrete part/ 3D sketching
@@ -99,10 +112,11 @@ def create_gravel_part(radius):
 
 
 # Define material properties of Concrete
-def material_properties_concrete(density, ym, pr):
+def material_properties_concrete(density, youngs_modulus, poissons_ratio, damping_alpha, damping_beta):
     mdb.models['Model-1'].Material(name='concrete')
     mdb.models['Model-1'].materials['concrete'].Density(table=((density,),))
-    mdb.models['Model-1'].materials['concrete'].Elastic(table=((ym, pr),))
+    mdb.models['Model-1'].materials['concrete'].Elastic(table=((youngs_modulus, poissons_ratio),))
+    mdb.models['Model-1'].materials['concrete'].Damping(alpha=damping_alpha, beta=damping_beta)
     mdb.models['Model-1'].HomogeneousSolidSection(name='concrete', material='concrete', thickness=None)
     p = mdb.models['Model-1'].parts['Concrete']
     c = p.cells
@@ -119,10 +133,10 @@ def material_properties_concrete(density, ym, pr):
 
 
 # Define material properties of Gravel
-def material_properties_gravel(density, ym, pr):
+def material_properties_gravel(density, youngs_modulus, poissons_ratio):
     mdb.models['Model-1'].Material(name='gravel')
     mdb.models['Model-1'].materials['gravel'].Density(table=((density,),))
-    mdb.models['Model-1'].materials['gravel'].Elastic(table=((ym, pr),))
+    mdb.models['Model-1'].materials['gravel'].Elastic(table=((youngs_modulus, poissons_ratio),))
     mdb.models['Model-1'].HomogeneousSolidSection(name='gravel', material='gravel', thickness=None)
     region = mdb.models['Model-1'].parts['Gravel'].Set(cells=mdb.models['Model-1'].parts['Gravel'].cells.findAt(((0, 0, 0), ),), name='Set-1')
     mdb.models['Model-1'].parts['Gravel'].SectionAssignment(region=region,
@@ -150,63 +164,16 @@ def embedded():
         c = a.instances['Gravel_' + str(s)].cells
         cells = c.findAt(((tuple(i)),))
         region1 = a.Set(cells=cells, name='allG' + str(s))
+        a = mdb.models['Model-1'].rootAssembly
+        region2 = a.instances['Concrete-1'].sets['Set-1']
         mdb.models['Model-1'].EmbeddedRegion(name='Constraint-' + str(s),
-                                                 embeddedRegion=region1, hostRegion=None, weightFactorTolerance=1e-06,
-                                                 absoluteTolerance=0.0, fractionalTolerance=0.05, toleranceMethod=BOTH)
+                                             embeddedRegion=region1, hostRegion=region2,
+                                             weightFactorTolerance=1e-06, absoluteTolerance=0.0,
+                                             fractionalTolerance=0.05, toleranceMethod=BOTH)
 
 
 # Mesh for ConcreteBeam
 def apply_mesh_concrete(meshSize):
-    p = mdb.models['Model-1'].parts['Concrete']
-    e = p.edges
-    pickedEdges = e.findAt(((0.0, 0.1, 0.05), ))         # upper Edge
-    p.PartitionEdgeByParam(edges=pickedEdges, parameter=0.5)
-    p = mdb.models['Model-1'].parts['Concrete']
-    e = p.edges
-    pickedEdges = e.findAt(((1.45, 0.1, 0.05), ))        # upper Edge
-    p.PartitionEdgeByParam(edges=pickedEdges, parameter=0.5)
-    p = mdb.models['Model-1'].parts['Concrete']
-    e = p.edges
-    pickedEdges = e.findAt(((0.0, 0.025, 0.1), ))        # right
-    p.PartitionEdgeByParam(edges=pickedEdges, parameter=0.5)
-    p = mdb.models['Model-1'].parts['Concrete']
-    e = p.edges
-    pickedEdges = e.findAt(((0.0, 0.025, 0.0), ))        # left
-    p.PartitionEdgeByParam(edges=pickedEdges, parameter=0.5)
-    p = mdb.models['Model-1'].parts['Concrete']
-    f = p.faces
-    pickedFaces = f.findAt(((0.0, 0.033333, 0.066667), ))
-    v, e, d = p.vertices, p.edges, p.datums
-    p.PartitionFaceByShortestPath(point1=v.findAt(coordinates=(0.0, 0.05, 0.1)),
-        point2=v.findAt(coordinates=(0.0, 0.05, 0.0)), faces=pickedFaces)
-    p = mdb.models['Model-1'].parts['Concrete']
-    f = p.faces
-    pickedFaces = f.findAt(((0.0, 0.083333, 0.016667), ))
-    v1, e1, d1 = p.vertices, p.edges, p.datums
-    p.PartitionFaceByShortestPath(point1=v1.findAt(coordinates=(0.0, 0.1, 0.05)),
-        faces=pickedFaces, point2=p.InterestingPoint(edge=e1.findAt(
-        coordinates=(0.0, 0.05, 0.025)), rule=MIDDLE))
-    p = mdb.models['Model-1'].parts['Concrete']
-    e = p.edges
-    pickedEdges = e.findAt(((1.45, 0.075, 0.0), ))
-    p.PartitionEdgeByParam(edges=pickedEdges, parameter=0.5)
-    p = mdb.models['Model-1'].parts['Concrete']
-    e = p.edges
-    pickedEdges = e.findAt(((1.45, 0.075, 0.1), ))
-    p.PartitionEdgeByParam(edges=pickedEdges, parameter=0.5)
-    p = mdb.models['Model-1'].parts['Concrete']
-    f = p.faces
-    pickedFaces = f.findAt(((1.45, 0.066667, 0.066667), ))
-    v, e, d = p.vertices, p.edges, p.datums
-    p.PartitionFaceByShortestPath(point1=v.findAt(coordinates=(1.45, 0.05, 0.1)),
-        point2=v.findAt(coordinates=(1.45, 0.05, 0)), faces=pickedFaces)
-    p = mdb.models['Model-1'].parts['Concrete']
-    f = p.faces
-    pickedFaces = f.findAt(((1.45, 0.083333, 0.083333), ))
-    v, e, d = p.vertices, p.edges, p.datums
-    p.PartitionFaceByShortestPath(point1=v.findAt(coordinates=(1.45, 0.1, 0.05)),
-        faces=pickedFaces, point2=p.InterestingPoint(edge=e.findAt(
-        coordinates=(1.45, 0.05, 0.075)), rule=MIDDLE))
     p = mdb.models['Model-1'].parts['Concrete']
     p.seedPart(size=meshSize, deviationFactor=0.1, minSizeFactor=0.1)
     p = mdb.models['Model-1'].parts['Concrete']
@@ -233,7 +200,7 @@ def apply_mesh_gravel(meshSize):
 
 def apply_analysisstep(timeincrement):
     mdb.models['Model-1'].ExplicitDynamicsStep(name='Step-1', previous='Initial',
-                                               timeIncrementationMethod=FIXED_USER_DEFINED_INC,timePeriod=5,
+                                               timeIncrementationMethod=FIXED_USER_DEFINED_INC, timePeriod=5,
                                                userDefinedInc=timeincrement,
                                                nlgeom=OFF, improvedDtMethod=ON)
 
@@ -260,61 +227,103 @@ def apply_amplitude():
                                            data=((0.0, 0.0), (0.001, 1000.0), (0.001001, 0.0), (5.0, 0.0)))
 
 
-def apply_load(Load):
-    p = mdb.models['Model-1'].rootAssembly.instances['Concrete-1']
-    region = mdb.models['Model-1'].rootAssembly.Set(vertices=p.vertices.findAt(((0, 0.05, 0.05), )), name='force')
+def arithmetic_sequence(meshSize):
+    d = (0.1/meshSize + 1)**2
+    print('d =', d)
+    a1 = 1 + (0.1/meshSize + 1)*(0.1/meshSize/2)
+    print('a1 =', a1)
+    n = 1.45/meshSize + 1
+    print('n =', n)
+    an = a1 + (n - 1)*d
+    print('an =', an)
+    m = int(1.45/meshSize//100)        # output required on 100 points, or near to 100 points
+    nodes = np.arange(int(a1), int(an+1), int(m*d))
+    print(nodes)
+    D = len(nodes)
+    print(D)
+    return nodes
+
+
+def apply_load(meshSize, Load):
+    node_list = arithmetic_sequence(meshSize)
+    fn = node_list[-48]          # the node near x=1/3*length(y=z=0.05)
+    print(fn)
+    p = mdb.models['Model-1'].parts['Concrete']
+    n = p.nodes
+    nodes = n[fn-1:fn]
+    p.Set(nodes=nodes, name='force')
+    a = mdb.models['Model-1'].rootAssembly
+    region = a.instances['Concrete-1'].sets['force']
     mdb.models['Model-1'].ConcentratedForce(name='Force',
                                             createStepName='Step-1',
                                             region=region,
-                                            cf1=Load,
+                                            cf2=Load,
                                             amplitude='Amp-1',
                                             distributionType=UNIFORM,
                                             field='',
                                             localCsys=None)
 
 
-def apply_history_output_request():
-    p = mdb.models['Model-1'].rootAssembly.instances['Concrete-1']
-    mdb.models['Model-1'].rootAssembly.Set(vertices=p.vertices.findAt(((1.45, 0.05, 0.05),)), name='displacement node')
-    mdb.models['Model-1'].HistoryOutputRequest(name='node displacement',
-                                               createStepName='Step-1',
-                                               variables=('U1', 'U2', 'U3'),
-                                               frequency=1,
-                                               region=mdb.models['Model-1'].rootAssembly.sets['displacement node'],
-                                               sectionPoints=DEFAULT,
-                                               rebar=EXCLUDE)
+def apply_history_output_request(meshSize):
+    num = arithmetic_sequence(meshSize)
+    p = mdb.models['Model-1'].parts['Concrete']
+    n = p.nodes
+    for i in num:
+        node = n[i - 1: i]
+        p = mdb.models['Model-1'].parts['Concrete']
+        p.Set(nodes=node, name='HOR' + str(i))
+        regionDef = mdb.models['Model-1'].rootAssembly.allInstances['Concrete-1'].sets['HOR' + str(i)]
+        mdb.models['Model-1'].HistoryOutputRequest(name='H-Output-' + str(i),
+                                                   createStepName='Step-1', variables=('U1', 'U2', 'U3'),
+                                                   frequency=1,
+                                                   region=regionDef, sectionPoints=DEFAULT, rebar=EXCLUDE)
+    del mdb.models['Model-1'].fieldOutputRequests['F-Output-1']
+    del mdb.models['Model-1'].historyOutputRequests['H-Output-1']
+
+
+def record_input_signal():
+    regionDef = mdb.models['Model-1'].rootAssembly.allInstances['Concrete-1'].sets['force']
+    mdb.models['Model-1'].HistoryOutputRequest(name='Input', createStepName='Step-1',
+                                               variables=('CF2', ), frequency=1,
+                                               region=regionDef, sectionPoints=DEFAULT, rebar=EXCLUDE)
 
 
 def apply_job():
-    mdb.Job(name='Job-1', model='Model-1', description='', type=ANALYSIS,
-            atTime=None, waitMinutes=0, waitHours=0, queue=None, memory=90,
-            memoryUnits=PERCENTAGE, explicitPrecision=SINGLE,
-            nodalOutputPrecision=SINGLE, echoPrint=OFF, modelPrint=OFF,
-            contactPrint=OFF, historyPrint=OFF, userSubroutine='', scratch='',
-            resultsFormat=ODB, parallelizationMethodExplicit=DOMAIN, numDomains=8,
-            activateLoadBalancing=False, multiprocessingMode=THREADS, numCpus=8)
+    mdb.Job(name='Job-1', model='Model-1', type=ANALYSIS, resultsFormat=ODB,
+            parallelizationMethodExplicit=DOMAIN, numDomains=32,
+            activateLoadBalancing=False, multiprocessingMode=THREADS, numCpus=32)
+    # mdb.jobs['Job-1'].writeInput(consistencyChecking=OFF)
     mdb.jobs['Job-1'].submit(consistencyChecking=OFF)
     mdb.jobs['Job-1'].waitForCompletion()
 
 
 if __name__ == "__main__":
+    # set_work_directory(r"/home/zhangzia/Schreibtisch/studienarbeit/runtime")
+    # create the girder with geometric parameter: length, width, depth.
     create_concrete_part(1.45, 0.1, 0.1)
+    # radius of gravel
     create_gravel_part(5E-3)
-    material_properties_concrete(2400.0, 3E10, 0.20)
+    # modify the material properties of the girder: density, youngs_modulus, poissons_ratio, alpha and beta for damping.
+    material_properties_concrete(2400.0, 3E10, 0.20, 7.1808, 0)
+    # modify the material properties of the gravel: density, youngs_modulus, poissons_ratio.
     material_properties_gravel(2860.0, 7E10, 0.30)
-    collide_check(0.05, 0.02)
-    delta_x, delta_y, delta_z = get_arg(0.05, 0.02)
+    # gravel grid parameter: delta_x and delta_y.
+    collide_check(2, 0.02)
+    delta_x, delta_y, delta_z = get_arg(2, 0.02)
     grid_list = generate_grid(delta_x, delta_y, delta_z)
     G = len(grid_list)
     print(G)
     n = G
     apply_translate()
     embedded()
-    apply_mesh_concrete(0.01)
+    # Mesh size
+    apply_mesh_concrete(0.005)
     apply_mesh_gravel(0.002)
+    # time increment
     apply_analysisstep(1E-6)
     apply_boundary_conditions()
     apply_amplitude()
-    apply_load(1)
-    apply_history_output_request()
+    apply_load(0.005, -1)
+    apply_history_output_request(0.005)
+    record_input_signal()
     apply_job()
