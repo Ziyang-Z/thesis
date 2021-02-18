@@ -17,6 +17,7 @@ from connectorBehavior import *
 from odbAccess import *
 import csv
 import numpy as np
+import datetime
 
 
 def arithmetic_sequence(meshSize):
@@ -24,7 +25,8 @@ def arithmetic_sequence(meshSize):
     a1 = 1 + (0.1/meshSize + 1)*(0.1/meshSize/2)
     n = 1.45/meshSize + 1
     an = a1 + (n - 1)*d
-    nodes = np.arange(int(a1), int(an), int(d))
+    m = int(1.45 / meshSize // 100)  # output required on 100 points, or near to 100 points
+    nodes = np.arange(int(a1), int(an+1), int(m*d))
     return nodes
 
 
@@ -35,10 +37,11 @@ def write_data_csv(meshSize, loc_job, loc_empty):
 
     num = arithmetic_sequence(meshSize)
 
-    force_node = num[-9]
+    force_node = num[-48]
     region = step1.historyRegions['Node CONCRETE-1.' + str(force_node)]
     input_Data = region.historyOutputs['CF2'].data
 
+    print('Data output starts!')
     path = loc_empty
     file = 'input.csv'
     with open(os.path.join(path, file), 'w') as csv.file:
@@ -75,6 +78,16 @@ def write_data_csv(meshSize, loc_job, loc_empty):
         file1.close()
 
 
-write_data_csv(0.05, 'C:/temp/Job-1.odb', 'C:/Users/ZZY/Desktop/database')
-# code = arithmetic_sequence(0.05)
-# print(code)
+def action(file_name):
+    starttime = datetime.datetime.now()
+    write_data_csv(0.005,
+                   '/home/zhangzia/Schreibtisch/studienarbeit/0.005/' + file_name + '/Job-1.odb',
+                   '/home/zhangzia/Schreibtisch/studienarbeit/0.005/csvfile_' + file_name)
+    print('All data for' + file_name + 'output is complete!')
+    endtime = datetime.datetime.now()
+    time = endtime - starttime
+    print('runtime =', time)
+
+
+action('125G')
+action('25G')
