@@ -19,24 +19,11 @@ import random
 import math
 import sys
 import os
+# import configparser
 
 
-# define noise center point area, r is the radius of this area, equal to the gravel's radius
-
-r = 5E-3
-
-# define noise area, N is the radius of noise area
-
-N = r
-
-# Length, depth, width describe the geometric parameter of the gravel grid
-# 0. 001 is to ensure that the value '1.45-2*r' can also be chosen, because the domain of arrange is [start, stop)
-# Depth is equal to width
-
-Length = 1.45 - 2*r + 0.0001
-Depth = 0.1 - 2*r + 0.0001
-Length_start = 0.01
-Depth_start = 0.01
+# config = configparser.ConfigParser()
+# config.read("database.ini", encoding="utf-8")
 
 
 def get_arg(a, b):
@@ -54,7 +41,7 @@ def generate_grid(delta_x, delta_y, delta_z):
     for x_point in x:
         for y_point in y:
             for z_point in z:
-                dx = random.uniform(x_point - N, x_point + N)
+                dx = random.uniform(x_point - N, x_point + 16*N)
                 dy = random.uniform(y_point - N, y_point + N)
                 dz = random.uniform(z_point - N, z_point + N)
                 grdi_list.append((dx, dy, dz))
@@ -62,16 +49,16 @@ def generate_grid(delta_x, delta_y, delta_z):
 
 
 def collide_check(a, b):
-    if Length_start - N < r:
+    if Length_start - N < radius_gravel:
         raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'Length_start' again!")
-    if Depth_start - N < r:
+    if Depth_start - N < radius_gravel:
         raise Exception("Error: gravels out of the boundary at rectangular-plane! Modify 'Depth_start' again!")
     else:
         print('Feasible at the boundary!')
         delta_x, delta_y, delta_z = get_arg(a, b)
-        if delta_x - 2*N < 2*r:
+        if delta_x - 2*N < 2*radius_gravel:
             raise Exception("Error: the gravels may get collide in x-direction! Modify 'a' again!")
-        if delta_z - 2*N < 2*r:
+        if delta_z - 2*N < 2*radius_gravel:
             raise Exception("Error: the gravels may get collide in y- or z-direction! Modify 'b' again!")
             # N = 0.99 * (delta_z - 2 * r) / 2
         else:
@@ -198,9 +185,9 @@ def apply_mesh_gravel(meshSize):
     mdb.models['Model-1'].parts['Gravel'].generateMesh()
 
 
-def apply_analysisstep(timeincrement):
+def apply_analysisstep(duration, timeincrement):
     mdb.models['Model-1'].ExplicitDynamicsStep(name='Step-1', previous='Initial',
-                                               timeIncrementationMethod=FIXED_USER_DEFINED_INC, timePeriod=5,
+                                               timeIncrementationMethod=FIXED_USER_DEFINED_INC, timePeriod=duration,
                                                userDefinedInc=timeincrement,
                                                nlgeom=OFF, improvedDtMethod=ON)
 
@@ -220,11 +207,21 @@ def apply_boundary_conditions():
                                          distributionType=UNIFORM, fieldName='', localCsys=None)
 
 
-def apply_amplitude():
+def apply_amplitude(path):
+    with open(path, 'rt') as csv_file:
+        reader = csv.DictReader(csv_file)
+        column1 = [row['time_step'] for row in reader]
+        time = [float(i) for i in column1]
+
+    with open(path, 'rt') as csv_file:
+        reader = csv.DictReader(csv_file)
+        column2 = [row['excitation'] for row in reader]
+        force = [float(i) for i in column2]
+    data = list(zip(time, force))
     mdb.models['Model-1'].TabularAmplitude(name='Amp-1',
                                            timeSpan=STEP,
                                            smooth=SOLVER_DEFAULT,
-                                           data=((0.0, 0.0), (0.001, 1000.0), (0.001001, 0.0), (5.0, 0.0)))
+                                           data=data)
 
 
 def arithmetic_sequence(meshSize):
@@ -245,8 +242,13 @@ def arithmetic_sequence(meshSize):
 
 
 def apply_load(meshSize, Load):
-    node_list = arithmetic_sequence(meshSize)
-    fn = node_list[-48]          # the node near x=1/3*length(y=z=0.05)
+    d = (0.1 / meshSize + 1) ** 2
+    a1 = 1 + (0.1 / meshSize + 1) * (0.1 / meshSize / 2)
+    n = 1.45 / meshSize + 1
+    an = a1 + (n - 1) * d
+    m = int(1.45 / meshSize // 100)  # output required on 100 points, or near to 100 points
+    nodes_list = np.arange(int(a1), int(an + 1), int(m * d))
+    fn = nodes_list[48]          # the node near x=1/3*length(y=z=0.05)
     print(fn)
     p = mdb.models['Model-1'].parts['Concrete']
     n = p.nodes
@@ -290,40 +292,69 @@ def record_input_signal():
 
 def apply_job():
     mdb.Job(name='Job-1', model='Model-1', type=ANALYSIS, resultsFormat=ODB,
-            parallelizationMethodExplicit=DOMAIN, numDomains=32,
-            activateLoadBalancing=False, multiprocessingMode=THREADS, numCpus=32)
+            parallelizationMethodExplicit=DOMAIN, numDomains=16,
+            activateLoadBalancing=False, multiprocessingMode=THREADS, numCpus=16)
     # mdb.jobs['Job-1'].writeInput(consistencyChecking=OFF)
     mdb.jobs['Job-1'].submit(consistencyChecking=OFF)
     mdb.jobs['Job-1'].waitForCompletion()
 
 
 if __name__ == "__main__":
+
+    mesh_size_girder = 0.01
+    length_girder = 1.45
+    width_girder = 0.10
+    depth_girder = 0.10
+    density_girder = 2400.0
+    youngs_modulus_girder = 3E10
+    poissons_ratio_girder = 0.20
+    alpha_damping_girder = 12.5651
+    beta_damping_girder = 1.273E-8
+
+    radius_gravel = 0.005
+    mesh_size_gravel = 0.002
+    delta_x_gravel = 0.110
+    delta_yz_gravel = 0.02
+    density_gravel = 2860
+    youngs_modulus_gravel = 5E10
+    poissons_ratio_gravel = 0.30
+
+    N = radius_gravel
+    Length = 1.35 - 2*radius_gravel + 0.0001
+    Depth = 0.1 - 2*radius_gravel + 0.0001
+    Length_start = 0.01
+    Depth_start = 0.01
+
+    time_step = 1E-6
+    duration = 3
+    load_sim = -1000
+
+    path_excitation = '/home/zhangzia/Schreibtisch/studienarbeit/investigation/material/5E10/excitation.csv'
+
     # set_work_directory(r"/home/zhangzia/Schreibtisch/studienarbeit/runtime")
-    # create the girder with geometric parameter: length, width, depth.
-    create_concrete_part(1.45, 0.1, 0.1)
-    # radius of gravel
-    create_gravel_part(5E-3)
-    # modify the material properties of the girder: density, youngs_modulus, poissons_ratio, alpha and beta for damping.
-    material_properties_concrete(2400.0, 3E10, 0.20, 7.1808, 0)
-    # modify the material properties of the gravel: density, youngs_modulus, poissons_ratio.
-    material_properties_gravel(2860.0, 7E10, 0.30)
-    # gravel grid parameter: delta_x and delta_y.
-    collide_check(2, 0.02)
-    delta_x, delta_y, delta_z = get_arg(2, 0.02)
+
+    create_concrete_part(length_girder, width_girder, depth_girder)
+    create_gravel_part(radius_gravel)
+
+    material_properties_concrete(depth_girder, youngs_modulus_girder, poissons_ratio_girder, alpha_damping_girder, beta_damping_girder)
+    material_properties_gravel(delta_x_gravel, youngs_modulus_gravel, poissons_ratio_gravel)
+
+    collide_check(delta_x_gravel, delta_yz_gravel)
+    delta_x, delta_y, delta_z = get_arg(delta_x_gravel, delta_yz_gravel)
     grid_list = generate_grid(delta_x, delta_y, delta_z)
     G = len(grid_list)
     print(G)
     n = G
     apply_translate()
     embedded()
-    # Mesh size
-    apply_mesh_concrete(0.005)
-    apply_mesh_gravel(0.002)
-    # time increment
-    apply_analysisstep(1E-6)
+
+    apply_mesh_concrete(mesh_size_girder)
+    apply_mesh_gravel(mesh_size_gravel)
+
+    apply_analysisstep(duration, time_step)
     apply_boundary_conditions()
-    apply_amplitude()
-    apply_load(0.005, -1)
-    apply_history_output_request(0.005)
+    apply_amplitude(path_excitation)
+    apply_load(mesh_size_girder, load_sim)
+    apply_history_output_request(mesh_size_girder)
     record_input_signal()
     apply_job()
