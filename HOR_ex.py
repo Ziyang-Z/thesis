@@ -25,23 +25,26 @@ import os
 # =============================================================================
 # this python file is for Hostory data exporting, which are exported into csv files.
 # =============================================================================
+mesh_size_girder = 0.01
+path_csv_storage = os.path.abspath('csv')
+path_job = os.path.abspath('Job-1.odb')
 
 
-def arithmetic_sequence(meshSize):
-    d = (0.1/meshSize + 1)**2
-    a1 = 1 + (0.1/meshSize + 1)*(0.1/meshSize/2)
-    n = 1.45/meshSize + 1
+def line_node_list(mesh_size):
+    d = (width_girder/mesh_size + 1)**2
+    a1 = 1 + (width_girder/mesh_size + 1)*(width_girder/mesh_size/2)
+    n = length_girder/mesh_size + 1
     an = a1 + (n - 1)*d
-    m = int(1.45 / meshSize // 100)  # output required on 100 points, or near to 100 points
+    m = int(length_girder / mesh_size // 100)  # output required on 100 points, or near to 100 points
     nodes = np.arange(int(a1), int(an+1), int(m*d))
     print(nodes)
     return nodes
 
 
-def test_node():
-    d = (0.1 / 0.01 + 1) ** 2
+def test_node_list():
+    d = (width_girder / 0.01 + 1) ** 2
     a1 = [37, 41, 81, 85]
-    n = 1.45 / 0.01 + 1
+    n = length_girder / 0.01 + 1
     an = []
     for i in a1:
         x = i + (n - 1) * d
@@ -67,14 +70,14 @@ def test_node():
     return an
 
 
-def write_data_csv(meshSize, loc_job, loc_empty, type=''):
-    an = test_node()
+def write_data_csv(mesh_size, loc_job, loc_empty, type=''):
+    an = test_node_list()
 
     path = loc_job
     odb = session.openOdb(name=(path))
     step1 = odb.steps['Step-1']
 
-    num = arithmetic_sequence(meshSize)
+    num = line_node_list(mesh_size)
 
     force_node = num[-48]
     region = step1.historyRegions['Node CONCRETE-1.' + str(force_node)]
@@ -100,7 +103,7 @@ def write_data_csv(meshSize, loc_job, loc_empty, type=''):
         for i in num:
             region = step1.historyRegions['Node CONCRETE-1.' + str(i)]
             # region = step1.historyRegions.items()
-            u1Data = region.historyOutputs['U1'].data
+            u1_data = region.historyOutputs['U1'].data
 
             path = loc_empty
             file = 'x-Dis-' + str(i) + '.csv'
@@ -112,7 +115,7 @@ def write_data_csv(meshSize, loc_job, loc_empty, type=''):
             writer = csv.writer(file1, dialect='excel')
             writer.writerow(["time_step", "x_disp"])
 
-            for row in u1Data:
+            for row in u1_data:
                 writer.writerow(row)
             print("Write data sucessful")
             file1.close()
@@ -120,7 +123,7 @@ def write_data_csv(meshSize, loc_job, loc_empty, type=''):
     if type == 'export_20':
         for i in an:
             region = step1.historyRegions['Node CONCRETE-1.' + str(i)]
-            u1Data = region.historyOutputs['U1'].data
+            u1_data = region.historyOutputs['U1'].data
 
             path = loc_empty
             file = 'x-Dis-' + str(i) + '.csv'
@@ -132,23 +135,23 @@ def write_data_csv(meshSize, loc_job, loc_empty, type=''):
             writer = csv.writer(file1, dialect='excel')
             writer.writerow(["time_step", "x_disp"])
 
-            for row in u1Data:
+            for row in u1_data:
                 writer.writerow(row)
             print("Write data sucessful")
             file1.close()
 
 
-def action(mesh_size, file_name):
+def hor_export(mesh_size):
     starttime = datetime.datetime.now()
     write_data_csv(mesh_size,
-                   '/home/zhangzia/Schreibtisch/studienarbeit/' + file_name + '/Job-1.odb',
-                   '/home/zhangzia/Schreibtisch/studienarbeit/' + file_name + '/csv',
+                   path_job,
+                   path_csv_storage,
                    type='export_20')
-    print('All data for' + file_name + 'output is complete!')
+    print('All data output is complete!')
     endtime = datetime.datetime.now()
     time = endtime - starttime
     print('runtime =', time)
 
 
-action(mesh_size_girder, 'investigation/G_size/20mm')
+hor_export(mesh_size_girder)
 

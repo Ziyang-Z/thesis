@@ -15,25 +15,18 @@ from sketch import *
 from visualization import *
 from connectorBehavior import *
 import numpy as np
+import csv
 import random
 import math
 import sys
 import os
-# import configparser
 
 
-# config = configparser.ConfigParser()
-# config.read("database.ini", encoding="utf-8")
-
-
-def get_arg(a, b):
+def generate_grid(a, b):
     delta_x = float(a)
     delta_y = float(b)
     delta_z = float(b)
-    return delta_x, delta_y, delta_z
 
-
-def generate_grid(delta_x, delta_y, delta_z):
     grdi_list = []
     x = [round(i, 2) for i in np.arange(Length_start, Length, delta_x)]
     y = [round(i, 2) for i in np.arange(Depth_start, Depth, delta_y)]
@@ -48,14 +41,15 @@ def generate_grid(delta_x, delta_y, delta_z):
     return grdi_list
 
 
-def collide_check(a, b):
+def collide_check():
     if Length_start - N < radius_gravel:
         raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'Length_start' again!")
     if Depth_start - N < radius_gravel:
         raise Exception("Error: gravels out of the boundary at rectangular-plane! Modify 'Depth_start' again!")
     else:
         print('Feasible at the boundary!')
-        delta_x, delta_y, delta_z = get_arg(a, b)
+        delta_x = float(delta_x_gravel)
+        delta_z = float(delta_yz_gravel)
         if delta_x - 2*N < 2*radius_gravel:
             raise Exception("Error: the gravels may get collide in x-direction! Modify 'a' again!")
         if delta_z - 2*N < 2*radius_gravel:
@@ -66,10 +60,6 @@ def collide_check(a, b):
 
 
 session.journalOptions.setValues(replayGeometry=COORDINATE, recoverGeometry=COORDINATE)
-
-
-def set_work_directory(path):
-    os.chdir(path)
 
 
 # create concrete part/ 3D sketching
@@ -160,15 +150,15 @@ def embedded():
 
 
 # Mesh for ConcreteBeam
-def apply_mesh_concrete(meshSize):
+def apply_mesh_concrete(mesh_size):
     p = mdb.models['Model-1'].parts['Concrete']
-    p.seedPart(size=meshSize, deviationFactor=0.1, minSizeFactor=0.1)
+    p.seedPart(size=mesh_size, deviationFactor=0.1, minSizeFactor=0.1)
     p = mdb.models['Model-1'].parts['Concrete']
     p.generateMesh()
 
 
 # Mesh for Gravel
-def apply_mesh_gravel(meshSize):
+def apply_mesh_gravel(mesh_size):
     mdb.models['Model-1'].parts['Gravel'].DatumPlaneByPrincipalPlane(principalPlane=XYPLANE, offset=0.0)
     mdb.models['Model-1'].parts['Gravel'].DatumPlaneByPrincipalPlane(principalPlane=YZPLANE, offset=0.0)
     mdb.models['Model-1'].parts['Gravel'].DatumPlaneByPrincipalPlane(principalPlane=XZPLANE, offset=0.0)
@@ -181,7 +171,7 @@ def apply_mesh_gravel(meshSize):
     mdb.models['Model-1'].parts['Gravel'].PartitionCellByDatumPlane(
         datumPlane=mdb.models['Model-1'].parts['Gravel'].datums[4],
         cells=mdb.models['Model-1'].parts['Gravel'].cells.getSequenceFromMask(mask=('[#f ]',), ))
-    mdb.models['Model-1'].parts['Gravel'].seedPart(size=meshSize, deviationFactor=0.1, minSizeFactor=0.1)
+    mdb.models['Model-1'].parts['Gravel'].seedPart(size=mesh_size, deviationFactor=0.1, minSizeFactor=0.1)
     mdb.models['Model-1'].parts['Gravel'].generateMesh()
 
 
@@ -215,7 +205,7 @@ def apply_amplitude(path):
 
     with open(path, 'rt') as csv_file:
         reader = csv.DictReader(csv_file)
-        column2 = [row['excitation'] for row in reader]
+        column2 = [row['force'] for row in reader]
         force = [float(i) for i in column2]
     data = list(zip(time, force))
     mdb.models['Model-1'].TabularAmplitude(name='Amp-1',
@@ -224,16 +214,16 @@ def apply_amplitude(path):
                                            data=data)
 
 
-def arithmetic_sequence(meshSize):
-    d = (0.1/meshSize + 1)**2
+def line_node_list(mesh_size):
+    d = (0.1/mesh_size + 1)**2
     print('d =', d)
-    a1 = 1 + (0.1/meshSize + 1)*(0.1/meshSize/2)
+    a1 = 1 + (0.1/mesh_size + 1)*(0.1/mesh_size/2)
     print('a1 =', a1)
-    n = 1.45/meshSize + 1
+    n = 1.45/mesh_size + 1
     print('n =', n)
     an = a1 + (n - 1)*d
     print('an =', an)
-    m = int(1.45/meshSize//100)        # output required on 100 points, or near to 100 points
+    m = int(1.45/mesh_size//100)        # output required on 100 points, or near to 100 points
     nodes = np.arange(int(a1), int(an+1), int(m*d))
     print(nodes)
     D = len(nodes)
@@ -241,13 +231,37 @@ def arithmetic_sequence(meshSize):
     return nodes
 
 
-def apply_load(meshSize, Load):
-    d = (0.1 / meshSize + 1) ** 2
-    a1 = 1 + (0.1 / meshSize + 1) * (0.1 / meshSize / 2)
-    n = 1.45 / meshSize + 1
-    an = a1 + (n - 1) * d
-    m = int(1.45 / meshSize // 100)  # output required on 100 points, or near to 100 points
-    nodes_list = np.arange(int(a1), int(an + 1), int(m * d))
+def test_node_list():
+    d = (0.1 / 0.01 + 1) ** 2
+    a1 = [37, 41, 81, 85]
+    n = 1.45 / 0.01 + 1
+    an = []
+    for i in a1:
+        x = i + (n - 1) * d
+        an.append(i)
+        an.append(int(x))
+
+    a1 = [34, 78]
+    n = [49, 98]
+    for i in a1:
+        for j in n:
+            x = i + (j - 1) * d
+            an.append(int(x))
+
+    a1 = [4, 8, 114, 118]
+    n = [49, 98]
+    for i in a1:
+        for j in n:
+            x = i + (j - 1) * d
+            an.append(int(x))
+    an.sort()
+    print(an)
+
+    return an
+
+
+def apply_load(mesh_size, Load):
+    nodes_list = line_node_list(mesh_size)
     fn = nodes_list[48]          # the node near x=1/3*length(y=z=0.05)
     print(fn)
     p = mdb.models['Model-1'].parts['Concrete']
@@ -266,8 +280,8 @@ def apply_load(meshSize, Load):
                                             localCsys=None)
 
 
-def apply_history_output_request(meshSize):
-    num = arithmetic_sequence(meshSize)
+def apply_history_output_request(mesh_size):
+    num = line_node_list(mesh_size)
     p = mdb.models['Model-1'].parts['Concrete']
     n = p.nodes
     for i in num:
@@ -294,8 +308,8 @@ def apply_job():
     mdb.Job(name='Job-1', model='Model-1', type=ANALYSIS, resultsFormat=ODB,
             parallelizationMethodExplicit=DOMAIN, numDomains=16,
             activateLoadBalancing=False, multiprocessingMode=THREADS, numCpus=16)
-    # mdb.jobs['Job-1'].writeInput(consistencyChecking=OFF)
-    mdb.jobs['Job-1'].submit(consistencyChecking=OFF)
+    mdb.jobs['Job-1'].writeInput(consistencyChecking=OFF)
+    # mdb.jobs['Job-1'].submit(consistencyChecking=OFF)
     mdb.jobs['Job-1'].waitForCompletion()
 
 
@@ -329,9 +343,7 @@ if __name__ == "__main__":
     duration = 3
     load_sim = -1000
 
-    path_excitation = '/home/zhangzia/Schreibtisch/studienarbeit/investigation/material/5E10/excitation.csv'
-
-    # set_work_directory(r"/home/zhangzia/Schreibtisch/studienarbeit/runtime")
+    path_excitation = os.path.abspath('excitation.csv')
 
     create_concrete_part(length_girder, width_girder, depth_girder)
     create_gravel_part(radius_gravel)
@@ -339,9 +351,8 @@ if __name__ == "__main__":
     material_properties_concrete(depth_girder, youngs_modulus_girder, poissons_ratio_girder, alpha_damping_girder, beta_damping_girder)
     material_properties_gravel(delta_x_gravel, youngs_modulus_gravel, poissons_ratio_gravel)
 
-    collide_check(delta_x_gravel, delta_yz_gravel)
-    delta_x, delta_y, delta_z = get_arg(delta_x_gravel, delta_yz_gravel)
-    grid_list = generate_grid(delta_x, delta_y, delta_z)
+    collide_check()
+    grid_list = generate_grid(delta_x_gravel, delta_yz_gravel)
     G = len(grid_list)
     print(G)
     n = G

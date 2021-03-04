@@ -12,22 +12,26 @@ import os
 # =============================================================================
 # This code is for the calculation and storage of the transfer functions.
 # =============================================================================
+mesh_size = 0.01
+length_girder = 1.45
+width_girder = 0.10
+path_csv_storage = os.path.abspath('csv')
 
 
-def arithmetic_sequence(meshSize):
-    d = (0.1/meshSize + 1)**2
-    a1 = 1 + (0.1/meshSize + 1)*(0.1/meshSize/2)
-    n = 1.45/meshSize + 1
+def line_node_list():
+    d = (width_girder/mesh_size + 1)**2
+    a1 = 1 + (width_girder/mesh_size + 1)*(width_girder/mesh_size/2)
+    n = length_girder/mesh_size + 1
     an = a1 + (n - 1)*d
-    m = int(1.45 / meshSize // 100)  # output required on 100 points, or near to 100 points
+    m = int(length_girder / mesh_size // 100)  # output required on 100 points, or near to 100 points
     nodes = np.arange(int(a1), int(an+1), int(m*d))
     return nodes
 
 
-def test_node():
-    d = (0.1 / 0.01 + 1) ** 2
+def test_node_list():
+    d = (width_girder / mesh_size + 1) ** 2
     a1 = [37, 41, 81, 85]
-    n = 1.45 / 0.01 + 1
+    n = length_girder / mesh_size + 1
     an = []
     for i in a1:
         x = i + (n - 1) * d
@@ -48,7 +52,6 @@ def test_node():
             x = i + (j - 1) * d
             an.append(int(x))
     an.sort()
-    # an.reverse()
     return an
 
 
@@ -82,7 +85,7 @@ def import_output_data(path):
     return time, dis_x
 
 
-def transfer_function(path_input, path_output):
+def calculate_transfer_function(path_input, path_output):
     time, dis_x = import_output_data(path_output)
     time, force = import_input_data(path_input)
 
@@ -97,15 +100,15 @@ def transfer_function(path_input, path_output):
     # im = np.imag(tf)
     # re = np.real(tf)
     # phase = np.arctan2(im, re)
-    return magnitude
+    return dis_x, magnitude
 
 
-def tf_set(meshSize, path_csv, type=''):
+def store_transfer_function(path_csv, type=''):
     starttime = datetime.datetime.now()
     print(starttime)
 
-    num1 = arithmetic_sequence(meshSize)
-    num2 = test_node()
+    num1 = line_node_list()
+    num2 = test_node_list()
     output_csv_name = []
 
     if type == 'export_146':
@@ -119,19 +122,54 @@ def tf_set(meshSize, path_csv, type=''):
             output_csv_name.append(file_name)
             output_csv_name.reverse()
 
-    # =============================================================================
-    # the observed line is evenly divided into 145 parts, so we will have 146 observed points.
-    # abaqus sorted the number of nodes in a reverse order, so i use reverse() command to fix it.
-    # =============================================================================
-
-    Magnitude = []
+    magnitude = []
     s = 0
     for j in output_csv_name:
         s = s + 1
-        print('Transfer function at ' + str((s - 1) * 0.01) + 'm calculation starts!')
-        mag = transfer_function(path_csv + '/' + 'input.csv',
-                                   path_csv + '/' + str(j))
-        Magnitude.append(mag)
+        print('Transfer function at calculation starts!')
+        x_disp, mag = calculate_transfer_function(path_csv + '/' + 'input.csv',
+                                                  path_csv + '/' + str(j))
+        
+        output_length = int(duration / time_step)
+        output_signal = x_disp
+
+        abs_output_signal = np.abs(output_signal)
+        mag_max_position = np.argmax(abs_output_signal)  # 1) Locate the maximum magnitude of the absolute output signal
+        print(mag_max_position)
+        mag_max = max(abs_output_signal)
+        print(mag_max)
+
+        window_width = 5
+
+        energy_max_list = []
+        for i in abs_output_signal[mag_max_position - window_width:mag_max_position + window_width + 1]:
+            energy = i ** 2
+            energy_max_list.append(energy)
+        energy_max = sum(energy_max_list)
+        print(energy_max)           
+        
+        mag_end_position = output_length
+        print(mag_end_position)
+        mag_end = output_signal[mag_end_position]
+        print(mag_end)
+
+        energy_end_list = []
+        for i in abs_output_signal[
+                 mag_end_position - 2 * window_width - 1:mag_end_position]:
+            energy = i ** 2
+            energy_end_list.append(energy)
+        energy_end = sum(energy_end_list)
+        print(energy_end)
+
+        thr = 1E-5
+        print(energy_end / energy_max)
+
+        if energy_end / energy_max < thr:
+            print("No aliasing occurs!!!")
+        else:
+            raise Exception("Error: Aliasing occurs on signal " + str(j) + "!!!")
+        
+        magnitude.append(mag)
     print('All tfs here!')
 
     print('Writing tfs into csvfile starts!')
@@ -145,10 +183,10 @@ def tf_set(meshSize, path_csv, type=''):
     writer = csv.writer(file1, dialect='excel')
 
     s = 0
-    for row in Magnitude:
+    for row in magnitude:
         s = s + 1
         writer.writerow(row)
-        print('Transfer function at ' + str((s-1)*0.01) + 'm output sucessful!')
+        print('Transfer function output sucessful!')
     file1.close()
     print('All tf data output finished!')
     endtime = datetime.datetime.now()
@@ -156,9 +194,10 @@ def tf_set(meshSize, path_csv, type=''):
     print('calculation time is ', endtime - starttime)
 
 
-def calculation(file_name):
+def main():
     starttime = datetime.datetime.now()
-    tf_set(0.01, '/home/zhangzia/Schreibtisch/studienarbeit/investigation/G_size/' + file_name + '/csv', type='export_20')
+    store_transfer_function(path_csv_storage, type='export_20')
     endtime = datetime.datetime.now()
     time = endtime - starttime
     print('runtime =', time)
+

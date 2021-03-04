@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --mail-user=zhangzia@ssh1.tnt.uni-hannover.de
+#SBATCH --mail-user=zhangzia@tnt.uni-hannover.de
 #SBATCH --mail-type=ALL
 
 #SBATCH --job-name=abqsimul
