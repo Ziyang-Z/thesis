@@ -53,11 +53,11 @@ def line_node_list(mesh_size):
 def create_folder(n):
     a = os.getcwd()
     os.mkdir(a + '/csv-' + str(n))
-    path_csv_storage = os.path.abspath('csv-' + str(n))
-    return path_csv_storage
+    csv_save_path = os.path.abspath('csv-' + str(n))
+    return csv_save_path
 
 
-def save_output_data_csv(n, mesh_size, path_csv_storage):
+def save_output_data_csv(n, mesh_size, csv_save_path):
     path = os.path.abspath('Job-' + str(n) + '.odb')
     odb = session.openOdb(name=path)
     step1 = odb.steps['Step-1']
@@ -69,7 +69,7 @@ def save_output_data_csv(n, mesh_size, path_csv_storage):
     input_Data = region.historyOutputs['CF2'].data
 
     print('Data output starts!')
-    path_csv = path_csv_storage
+    path_csv = csv_save_path
     file = 'input.csv'
     with open(os.path.join(path_csv, file), 'w') as csv.file:
         pass
@@ -93,7 +93,7 @@ def save_output_data_csv(n, mesh_size, path_csv_storage):
         # region = step1.historyRegions.items()
         u1_data = region.historyOutputs['U1'].data
 
-        path_csv = path_csv_storage
+        path_csv = csv_save_path
         file = 'output-' + str(s) + '.csv'
         with open(os.path.join(path_csv, file), 'w') as csv.file:
             pass
@@ -193,9 +193,9 @@ def calculate_transfer_function(input_signal, output_signal):
     return magnitude
 
 
-def save_transfer_function(path_csv_storage, magnitude_list):
+def save_transfer_function(csv_save_path, magnitude_list):
     print('Writing tfs into csvfile starts!')
-    path_csv = path_csv_storage
+    path_csv = csv_save_path
     file = 'tf.csv'
     with open(os.path.join(path_csv, file), 'w') as csv.file:
         pass
@@ -216,15 +216,15 @@ def save_transfer_function(path_csv_storage, magnitude_list):
 def main(n):
 
     starttime = datetime.datetime.now()
-    path_csv_storage = create_folder(n)
-    save_output_data_csv(n, mesh_size_girder, path_csv_storage)
+    csv_save_path = create_folder(n)
+    save_output_data_csv(n, mesh_size_girder, csv_save_path)
     print('All data-output is complete!')
 
     num = np.arange(0, len(line_node_list(mesh_size_girder)), 1)
     magnitude_list = []
     for i in num:
-        time, input_signal = import_input_data(path_csv_storage + '/input.csv')
-        time, output_signal = import_output_data(path_csv_storage + '/output-' + str(i) + '.csv')
+        time, input_signal = import_input_data(csv_save_path + '/input.csv')
+        time, output_signal = import_output_data(csv_save_path + '/output-' + str(i) + '.csv')
         check_aliasing(output_signal)
         magnitude = calculate_transfer_function(input_signal, output_signal)
         magnitude_list.append(magnitude)
@@ -233,7 +233,7 @@ def main(n):
     magnitude_list.append(frequency)
 
     print('All transfer functions here!')
-    save_transfer_function(path_csv_storage, magnitude_list)
+    save_transfer_function(csv_save_path, magnitude_list)
 
     endtime = datetime.datetime.now()
     time = endtime - starttime
