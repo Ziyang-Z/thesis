@@ -29,7 +29,7 @@ if __name__ == "__main__":
     for i in num:
         subprocess.run('/prog/abaqus/2020/bin/abaqus interactive job=Job-' + str(i) + '.inp mp_mode=threads parallel=domain cpus=32 domains=32',
                        shell=True, check=True)
-        subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_result_export.py', '--', str(parameter_switcher[key_parameter][0:])])
+    subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_result_export.py', '--', str(parameter_switcher[key_parameter][0:])])
 
     endtime = datetime.datetime.now()
     print('runtime =', endtime - starttime)
