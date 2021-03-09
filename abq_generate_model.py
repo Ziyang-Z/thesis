@@ -276,8 +276,8 @@ def main(n):
 
     apply_amplitude(path_excitation)
 
-    apply_load(mesh_size_girder, load_sim)
-    define_history_output(mesh_size_girder)
+    apply_load(load)
+    define_history_output()
     write_input_file(n)
 
 
@@ -311,7 +311,7 @@ if __name__ == '__main__':
 
     time_step = 1E-6
     duration = 3
-    load_sim = -1000
+    load = -1000
 
     path_excitation = os.path.abspath('excitation.csv')
 
@@ -330,6 +330,7 @@ if __name__ == '__main__':
     if aggregates_insert:
         # to fix the position of the aggregates, create the grid only once at first.
         grid_list = generate_grid(delta_x_gravel, delta_y_gravel, delta_y_gravel)
+        collide_check()
         sum_aggregates = len(grid_list)
         print("the number of the aggregates is ", sum_aggregates)
     else:
