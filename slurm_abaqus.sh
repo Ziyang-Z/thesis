@@ -14,10 +14,10 @@
 #SBATCH --ntasks=1
 
 #  48GB RAM memory per node reservated 
-#SBATCH --mem=96G
+#SBATCH --mem=30G
 
 #  working directory
 cd "/home/zhangzia/Schreibtisch/studienarbeit/investigation/material/5E10"
 
 # run abaqus script
-python3 run_parametrestudy.py
+python3 abq_analysis.py

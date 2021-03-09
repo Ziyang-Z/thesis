@@ -23,6 +23,8 @@ import math
 import csv
 import os
 
+import abq_node_list as nl
+
 
 # =============================================================================
 # this python file is for Hostory data exporting, which are exported into csv files.
@@ -38,18 +40,6 @@ thr = 1E-5
 window_width = 5
 
 
-def line_node_list(mesh_size):
-    d = (width_girder/mesh_size + 1)**2
-    a1 = 1 + (width_girder/mesh_size + 1)*(width_girder/mesh_size/2)
-    n = length_girder/mesh_size + 1
-    an = a1 + (n - 1)*d
-    m = int(length_girder / mesh_size // 100)  # output required on 100 points, or near to 100 points
-    nodes = np.arange(int(a1), int(an+1), int(m*d))
-    nodes = nodes[::-1]
-    print(nodes)
-    return nodes
-
-
 def create_folder(n):
     a = os.getcwd()
     os.mkdir(a + '/csv-' + str(n))
@@ -57,14 +47,12 @@ def create_folder(n):
     return csv_save_path
 
 
-def save_output_data_csv(n, mesh_size, csv_save_path):
+def save_output_data_csv(n, csv_save_path):
     path = os.path.abspath('Job-' + str(n) + '.odb')
     odb = session.openOdb(name=path)
     step1 = odb.steps['Step-1']
 
-    num = line_node_list(mesh_size)
-
-    force_node = num[48]
+    force_node = nl.set_force_node()
     region = step1.historyRegions['Node CONCRETE-1.' + str(force_node)]
     input_Data = region.historyOutputs['CF2'].data
 
@@ -85,9 +73,7 @@ def save_output_data_csv(n, mesh_size, csv_save_path):
     file1.close()
 
     s = 0
-    num1 = num[41:56]
-    num2 = num[-15:]
-    num = np.concatenate((num1, num2))
+    num = nl.main()
     for i in num:
         region = step1.historyRegions['Node CONCRETE-1.' + str(i)]
         # region = step1.historyRegions.items()
@@ -163,8 +149,7 @@ def check_aliasing(output_signal):
     print(mag_end)
 
     energy_end_list = []
-    for i in abs_output_signal[
-             mag_end_position - 2 * window_width - 1:mag_end_position]:
+    for i in abs_output_signal[mag_end_position - 2 * window_width - 1:mag_end_position]:
         energy = i ** 2
         energy_end_list.append(energy)
     energy_end = sum(energy_end_list)
@@ -204,9 +189,7 @@ def save_transfer_function(csv_save_path, magnitude_list):
     file1 = open(path, 'w')
     writer = csv.writer(file1, dialect='excel')
 
-    s = 0
     for row in magnitude_list:
-        s = s + 1
         writer.writerow(row)
         print("Transfer function's writting finished!")
     file1.close()
@@ -217,15 +200,16 @@ def main(n):
 
     starttime = datetime.datetime.now()
     csv_save_path = create_folder(n)
-    save_output_data_csv(n, mesh_size_girder, csv_save_path)
+    save_output_data_csv(n, csv_save_path)
     print('All data-output is complete!')
 
-    num = np.arange(0, len(line_node_list(mesh_size_girder)), 1)
+    num = np.arange(0, len(nl.main()), 1)
     magnitude_list = []
     for i in num:
         time, input_signal = import_input_data(csv_save_path + '/input.csv')
         time, output_signal = import_output_data(csv_save_path + '/output-' + str(i) + '.csv')
         check_aliasing(output_signal)
+        print(str(i) + 'finished')
         magnitude = calculate_transfer_function(input_signal, output_signal)
         magnitude_list.append(magnitude)
 

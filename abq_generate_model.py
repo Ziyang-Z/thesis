@@ -21,38 +21,40 @@ import math
 import sys
 import os
 
+import abq_node_list as nl
+
 
 def generate_grid(delta_x, delta_y, delta_z):
     grid_list = []
-    x = [round(i, 2) for i in np.arange(Length_start, Length, delta_x)]
-    y = [round(i, 2) for i in np.arange(Depth_start, Depth, delta_y)]
-    z = [round(i, 2) for i in np.arange(Depth_start, Depth, delta_z)]
+    x = [round(i, 2) for i in np.arange(grid_left_limit_length, grid_right_limit_length, delta_x)]
+    y = [round(i, 2) for i in np.arange(grid_left_limit_width, grid_right_limit_width, delta_y)]
+    z = [round(i, 2) for i in np.arange(grid_left_limit_depth, grid_right_limit_depth, delta_z)]
     for x_point in x:
         for y_point in y:
             for z_point in z:
-                dx = random.uniform(x_point - N, x_point + N)
-                dy = random.uniform(y_point - N, y_point + N)
-                dz = random.uniform(z_point - N, z_point + N)
+                dx = random.uniform(x_point - noise_radius, x_point + noise_radius)
+                dy = random.uniform(y_point - noise_radius, y_point + noise_radius)
+                dz = random.uniform(z_point - noise_radius, z_point + noise_radius)
                 grid_list.append((dx, dy, dz))
     return grid_list
 
 
 def collide_check():
-    if Length_start - N < radius_gravel:
-        raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'Length_start' again!")
-    if Depth_start - N < radius_gravel:
-        raise Exception("Error: gravels out of the boundary at rectangular-plane! Modify 'Depth_start' again!")
+    if grid_left_limit_length - noise_radius < radius_gravel:
+        raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'grid_left_limit_length' again!")
+    if grid_left_limit_depth - noise_radius < radius_gravel:
+        raise Exception("Error: gravels out of the boundary at rectangular-plane! Modify 'grid_left_limit_depth' again!")
     else:
         print('Feasible at the boundary!')
         delta_x = float(delta_x_gravel)
         delta_z = float(delta_yz_gravel)
-        if delta_x - 2*N < 2*radius_gravel:
-            raise Exception("Error: the gravels may get collide in x-direction! Modify 'a' again!")
-        if delta_z - 2*N < 2*radius_gravel:
-            raise Exception("Error: the gravels may get collide in y- or z-direction! Modify 'b' again!")
-            # N = 0.99 * (delta_z - 2 * r) / 2
+        if delta_x - 2*noise_radius < 2*radius_gravel:
+            raise Exception("Error: the gravels may get collide in x-direction! Modify 'delta_x' again!")
+        if delta_z - 2*noise_radius < 2*radius_gravel:
+            raise Exception("Error: the gravels may get collide in y- or z-direction! Modify 'delta_y' again!")
+            # noise_radius = 0.99 * (delta_z - 2 * radius_gravel) / 2
         else:
-            print("'N' is feasible for the further functions!")
+            print("'noise_radius' is feasible for the further functions!")
 
 
 # create concrete part/ 3D sketching
@@ -206,27 +208,11 @@ def apply_amplitude(excitation_file_path):
                                            data=data)
 
 
-def line_node_list(mesh_size):
-    d = (width_girder/mesh_size + 1)**2
-    a1 = 1 + (width_girder/mesh_size + 1)*(width_girder/mesh_size/2)
-    n = length_girder/mesh_size + 1
-    an = a1 + (n - 1)*d
-    m = int(length_girder/mesh_size//100)        # output required on 100 points, or near to 100 points
-    nodes = np.arange(int(a1), int(an+1), int(m*d))
-    nodes = nodes[::-1]
-    print(nodes)
-    D = len(nodes)
-    print(D)
-    return nodes
-
-
-def apply_load(mesh_size, Load):
-    nodes_list = line_node_list(mesh_size)
-    fn = nodes_list[48]          # the node near x=1/3*length(y=z=0.05)
-    print(fn)
+def apply_load(Load):
+    force_node = nl.set_force_node()
     p = mdb.models['Model-1'].parts['Concrete']
     n = p.nodes
-    nodes = n[fn-1:fn]
+    nodes = n[force_node-1:force_node]
     p.Set(nodes=nodes, name='force')
     a = mdb.models['Model-1'].rootAssembly
     region = a.instances['Concrete-1'].sets['force']
@@ -240,11 +226,8 @@ def apply_load(mesh_size, Load):
                                             localCsys=None)
 
 
-def define_history_output(mesh_size):
-    num = line_node_list(mesh_size)
-    num1 = num[41:56]
-    num2 = num[-15:]
-    num = np.concatenate((num1, num2))
+def define_history_output():
+    num = nl.main()
     print('the selected nodes are ', num)
     print(len(num))
     p = mdb.models['Model-1'].parts['Concrete']
@@ -280,7 +263,11 @@ def main(n):
     material_properties_concrete(density_girder, youngs_modulus_girder, poissons_ratio_girder, alpha_damping_girder, beta_damping_girder)
     material_properties_gravel(density_gravel, youngs_modulus_gravel, poissons_ratio_gravel)
 
-    insert_aggregates()
+    if aggregates_insert:
+        insert_aggregates()
+        print('this is the analysis of the concrete with aggregates')
+    else:
+        print('this is the analysis of the concrete only')
 
     mesh_model(mesh_size_girder, mesh_size_aggregate)
 
@@ -314,22 +301,21 @@ if __name__ == '__main__':
     youngs_modulus_gravel = 5E10
     poissons_ratio_gravel = 0.30
 
-    N = radius_gravel
-    Length = 1.35 - 2*radius_gravel + 0.0001
-    Depth = 0.1 - 2*radius_gravel + 0.0001
-    Length_start = 0.01
-    Depth_start = 0.01
+    noise_radius = radius_gravel
+    grid_right_limit_length = 1.35 - 2*radius_gravel + 0.0001
+    grid_right_limit_width = 0.1 - 2*radius_gravel + 0.0001
+    grid_right_limit_depth = 0.1 - 2*radius_gravel + 0.0001
+    grid_left_limit_length = 0.01
+    grid_left_limit_width = 0.01
+    grid_left_limit_depth = 0.01
 
     time_step = 1E-6
     duration = 3
     load_sim = -1000
 
-    grid_list = generate_grid(delta_x_gravel, delta_y_gravel, delta_y_gravel)
-    sum_aggregates = len(grid_list)
-    print("the number of the aggregates is ", sum_aggregates)
-
     path_excitation = os.path.abspath('excitation.csv')
 
+    # call the parameters.
     parameter = sys.argv[-1]
     parameter = parameter.strip("[]").split(",")
     key = parameter[0].strip("'")
@@ -339,6 +325,15 @@ if __name__ == '__main__':
     parameter_dict = {}
     parameter_dict[key] = value
     print(parameter_dict)
+
+    aggregates_insert = bool(sys.argv[-2])
+    if aggregates_insert:
+        # to fix the position of the aggregates, create the grid only once at first.
+        grid_list = generate_grid(delta_x_gravel, delta_y_gravel, delta_y_gravel)
+        sum_aggregates = len(grid_list)
+        print("the number of the aggregates is ", sum_aggregates)
+    else:
+        print("no aggregates!")
 
     if 'load' == key:
         s = 1

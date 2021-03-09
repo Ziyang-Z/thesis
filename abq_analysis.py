@@ -10,9 +10,12 @@ import excitation as ex
 
 if __name__ == "__main__":
 
+    ex.main()
+
     starttime = datetime.datetime.now()
 
-    ex.main()
+    # analysis of concrete only = False, analysis of concrete with aggregates = True
+    aggregates_insert = True
 
     parameter_switcher = {
         "youngs_modulus": ["youngs_modulus", 40E9, 40.5E9, 41E9, 41.5E9, 42E9],
@@ -24,7 +27,7 @@ if __name__ == "__main__":
     key_parameter = "youngs_modulus"
     print(key_parameter)
 
-    subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_generate_model.py', '--', str(parameter_switcher[key_parameter][0:])])
+    subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_generate_model.py', '--', str(aggregates_insert), str(parameter_switcher[key_parameter][0:])])
     num = np.arange(1, len(parameter_switcher["youngs_modulus"][1:]) + 1, 1)
     for i in num:
         subprocess.run('/prog/abaqus/2020/bin/abaqus interactive job=Job-' + str(i) + '.inp mp_mode=threads parallel=domain cpus=32 domains=32',
