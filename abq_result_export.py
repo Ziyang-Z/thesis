@@ -29,9 +29,9 @@ import abq_node_list as nl
 # =============================================================================
 # this python file is for Hostory data exporting, which are exported into csv files.
 # =============================================================================
-mesh_size_girder = 0.01
-width_girder = 0.10
 length_girder = 1.45
+width_girder = 0.10
+mesh_size_girder = 0.01
 
 duration = 3
 time_step = 1E-6
@@ -40,15 +40,15 @@ thr = 1E-5
 window_width = 5
 
 
-def create_folder(n):
-    a = os.getcwd()
-    os.mkdir(a + '/csv-' + str(n))
-    csv_save_path = os.path.abspath('csv-' + str(n))
+def create_folder(parameter_value):
+    path_current = os.getcwd()
+    os.mkdir(path_current + '/csv-' + str(parameter_value))
+    csv_save_path = os.path.abspath('csv-' + str(parameter_value))
     return csv_save_path
 
 
-def save_output_data_csv(n, csv_save_path):
-    path = os.path.abspath('Job-' + str(n) + '.odb')
+def save_output_data_csv(csv_save_path):
+    path = os.path.abspath('Analysis.odb')
     odb = session.openOdb(name=path)
     step1 = odb.steps['Step-1']
 
@@ -57,12 +57,14 @@ def save_output_data_csv(n, csv_save_path):
     input_Data = region.historyOutputs['CF2'].data
 
     print('Data output starts!')
-    path_csv = csv_save_path
+    os.chdir(csv_save_path)
+    path_current = os.getcwd()
     file = 'input.csv'
-    with open(os.path.join(path_csv, file), 'w') as csv.file:
+    with open(os.path.join(path_current, file), 'w') as csv.file:
         pass
 
-    path = path_csv + '/' + file
+    # path = path_current + '/' + file
+    path = file
     file1 = open(path, 'wb')
     writer = csv.writer(file1, dialect='excel')
     writer.writerow(["time_step", "force"])
@@ -76,18 +78,17 @@ def save_output_data_csv(n, csv_save_path):
     num = nl.main()
     for i in num:
         region = step1.historyRegions['Node CONCRETE-1.' + str(i)]
-        # region = step1.historyRegions.items()
-        u1_data = region.historyOutputs['U1'].data
+        u1_data = region.historyOutputs['U2'].data
 
-        path_csv = csv_save_path
         file = 'output-' + str(s) + '.csv'
         with open(os.path.join(path_csv, file), 'w') as csv.file:
             pass
 
-        path = path_csv + '/' + file
+        # path = path_current + '/' + file
+        path = file
         file1 = open(path, 'wb')
         writer = csv.writer(file1, dialect='excel')
-        writer.writerow(["time_step", "x_disp"])
+        writer.writerow(["time_step", "y_disp"])
 
         for row in u1_data:
             writer.writerow(row)
@@ -119,12 +120,12 @@ def import_output_data(path):
     with open(path, 'rt') as csv_file:
         reader = csv.DictReader(csv_file)
         time = []
-        dis_x = []
+        dis_y = []
         for row in reader:
             time.append(float(row['time_step']))
-            dis_x.append(float(row['x_disp']))
+            dis_y.append(float(row['y_disp']))
 
-    return time, dis_x
+    return time, dis_y
 
 
 def check_aliasing(output_signal):
@@ -196,11 +197,14 @@ def save_transfer_function(csv_save_path, magnitude_list):
     print("All transfer functions' data output finished!")
 
 
-def main(n):
+def main(parameter_analysis_name, parameter_value):
 
     starttime = datetime.datetime.now()
-    csv_save_path = create_folder(n)
-    save_output_data_csv(n, csv_save_path)
+    path_odb = os.path.abspath(parameter_analysis_name)
+    os.chdir(path_odb)
+
+    csv_save_path = create_folder(parameter_value)
+    save_output_data_csv(csv_save_path)
     print('All data-output is complete!')
 
     num = np.arange(0, len(nl.main()), 1)
@@ -226,10 +230,10 @@ def main(n):
     
 if __name__ == '__main__':
     parameter = sys.argv[-1]
-    parameter = parameter.strip("[]").split(",")
-    key = parameter[0].strip("'")
-    print(key)
-    value = list(map(float, parameter[1:]))
+    parameter = parameter.strip("[]").split(" ")
 
-    for i in np.arange(1, len(value) + 1, 1):
-        main(i)
+    key_parameter = sys.argv[-2]
+    parameter_list = list(map(float, parameter))
+
+    for value in parameter_list:
+        main(key_parameter + '-' + str(value), value)

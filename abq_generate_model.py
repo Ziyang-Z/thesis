@@ -47,7 +47,7 @@ def collide_check():
     else:
         print('Feasible at the boundary!')
         delta_x = float(delta_x_gravel)
-        delta_z = float(delta_yz_gravel)
+        delta_z = float(delta_y_gravel)
         if delta_x - 2*noise_radius < 2*radius_gravel:
             raise Exception("Error: the gravels may get collide in x-direction! Modify 'delta_x' again!")
         if delta_z - 2*noise_radius < 2*radius_gravel:
@@ -250,13 +250,17 @@ def define_history_output():
                                                region=regionDef, sectionPoints=DEFAULT, rebar=EXCLUDE)
 
 
-def write_input_file(n):
-    mdb.Job(name='Job-' + str(n), model='Model-1', type=ANALYSIS, resultsFormat=ODB)
-    mdb.jobs['Job-' + str(n)].writeInput(consistencyChecking=OFF)
-    mdb.jobs['Job-' + str(n)].waitForCompletion()
+def write_input_file(parameter_analysis_name):
+    a = os.getcwd()
+    os.mkdir(a + '/' + parameter_analysis_name)
+    folder_name = os.path.abspath(parameter_analysis_name)
+    set_work_directory(folder_name)
+    mdb.Job(name='Analysis', model='Model-1', type=ANALYSIS, resultsFormat=ODB)
+    mdb.jobs['Analysis'].writeInput(consistencyChecking=OFF)
+    mdb.jobs['Analysis'].waitForCompletion()
 
 
-def main(n):
+def main(parameter_analysis_name):
     create_girder(length_girder, width_girder, depth_girder)
     create_aggregate(radius_gravel)
 
@@ -276,9 +280,9 @@ def main(n):
 
     apply_amplitude(path_excitation)
 
-    apply_load(load)
+    apply_load(load_value)
     define_history_output()
-    write_input_file(n)
+    write_input_file(parameter_analysis_name)
 
 
 if __name__ == '__main__':
@@ -311,22 +315,19 @@ if __name__ == '__main__':
 
     time_step = 1E-6
     duration = 3
-    load = -1000
+    load_value = -1000
 
     path_excitation = os.path.abspath('excitation.csv')
 
     # call the parameters.
     parameter = sys.argv[-1]
     parameter = parameter.strip("[]").split(",")
-    key = parameter[0].strip("'")
-    print(key)
-    value = list(map(float, parameter[1:]))
-    print(value)
-    parameter_dict = {}
-    parameter_dict[key] = value
-    print(parameter_dict)
+    parameter_list = list(map(float, parameter))
+    print(parameter_list)
 
-    aggregates_insert = bool(sys.argv[-2])
+    key_parameter = sys.argv[-2]
+
+    aggregates_insert = bool(sys.argv[-3])
     if aggregates_insert:
         # to fix the position of the aggregates, create the grid only once at first.
         grid_list = generate_grid(delta_x_gravel, delta_y_gravel, delta_y_gravel)
@@ -336,26 +337,20 @@ if __name__ == '__main__':
     else:
         print("no aggregates!")
 
-    if 'load' == key:
-        s = 1
-        for i in parameter_dict[key]:
-            load = i
-            print('the parameter under analysis is load, value is ', load)
-            main(s)
-            s = s + 1
+    if 'mesh_size_aggregate' == key_parameter:
+        for value in parameter_list:
+            mesh_size_aggregate = value
+            print('the parameter under analysis is' + key_parameter + ', value is ', mesh_size_aggregate)
+            main(key_parameter + '-' + str(value))
 
-    elif 'youngs_modulus' == key:
-        s = 1
-        for i in parameter_dict[key]:
-            youngs_modulus_gravel = i
-            print('the parameter under analysis is youngs_modulus, value is ', youngs_modulus_gravel)
-            main(s)
-            s = s + 1
+    elif 'youngs_modulus' == key_parameter:
+        for value in parameter_list:
+            youngs_modulus_gravel = value
+            print('the parameter under analysis is' + key_parameter + ', value is ', youngs_modulus_gravel)
+            main(key_parameter + '-' + str(value))
 
-    elif 'size_aggregate' == key:
-        s = 1
-        for i in parameter_dict[key]:
-            radius_gravel = i/2
-            print('the parameter under analysis is size_aggregate, value is ', radius_gravel)
-            main(s)
-            s = s + 1
+    elif 'size_aggregate' == key_parameter:
+        for value in parameter_list:
+            radius_gravel = value/2
+            print('the parameter under analysis is' + key_parameter + ', value is ', radius_gravel)
+            main(key_parameter + '-' + str(value))
