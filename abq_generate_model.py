@@ -330,7 +330,7 @@ if __name__ == '__main__':
     load_value = -1000
 
     path_excitation = os.path.abspath('excitation.csv')
-    path_work = sys.argv[-4]
+    path_work = sys.argv[-2]
 
     # call the parameters.
     value = sys.argv[-1]
@@ -338,8 +338,8 @@ if __name__ == '__main__':
     value_list = list(map(float, value))
     print(value_list)
 
-    key_parameter = sys.argv[-2]
-    key_parameter = key_parameter.strip("[]").split(",")
+    # key_parameter = sys.argv[-2]
+    # key_parameter = key_parameter.strip("[]").split(",")
 
     if value_list[0] == 0:
         youngs_modulus_girder = youngs_modulus_girder_default

@@ -51,9 +51,6 @@ if __name__ == "__main__":
 
     starttime = datetime.datetime.now()
 
-    # analysis of concrete only = False, analysis of concrete with aggregates = True
-    aggregates_insert = True
-
     parameter_switcher = {
         "youngs_modulus_girder": specify_parameter_range(youngs_modulus_girder_start, youngs_modulus_girder_end,
                                                          youngs_modulus_girder_step),
@@ -109,7 +106,7 @@ if __name__ == "__main__":
                                             os.chdir(parent_path)
 
                                             subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_generate_model.py', '--',
-                                                            parameter_analysis_path, str(aggregates_insert), str(key_parameter), str(value_list)])
+                                                            parameter_analysis_path, str(value_list)])
 
                                             os.chdir(parameter_analysis_path)
 
