@@ -39,16 +39,23 @@ time_step = 1E-6
 thr = 1E-5
 window_width = 5
 
+parent_path = os.path.dirname(os.path.abspath('abq_analysis.py'))
 
-def create_folder(parameter_value):
-    path_current = os.getcwd()
-    os.mkdir(path_current + '/csv-' + str(parameter_value))
-    csv_save_path = os.path.abspath('csv-' + str(parameter_value))
+
+def odb_path(parameter_analysis_name):
+    os.chdir(os.path.join(parent_path, parameter_analysis_name))
+    path_odb = os.path.abspath('Analysis.odb')
+    return path_odb
+
+
+def create_folder(path_odb):
+    os.mkdir(os.path.join(os.path.dirname(path_odb), 'output_csv'))
+    csv_save_path = os.path.join(os.path.join(os.path.dirname(path_odb), 'output_csv'))
     return csv_save_path
 
 
-def save_output_data_csv(csv_save_path):
-    path = os.path.abspath('Analysis.odb')
+def save_output_data_csv(path_odb, csv_save_path):
+    path = path_odb
     odb = session.openOdb(name=path)
     step1 = odb.steps['Step-1']
 
@@ -63,7 +70,6 @@ def save_output_data_csv(csv_save_path):
     with open(os.path.join(path_current, file), 'w') as csv.file:
         pass
 
-    # path = path_current + '/' + file
     path = file
     file1 = open(path, 'wb')
     writer = csv.writer(file1, dialect='excel')
@@ -84,7 +90,6 @@ def save_output_data_csv(csv_save_path):
         with open(os.path.join(path_csv, file), 'w') as csv.file:
             pass
 
-        # path = path_current + '/' + file
         path = file
         file1 = open(path, 'wb')
         writer = csv.writer(file1, dialect='excel')
@@ -129,31 +134,17 @@ def import_output_data(path):
 
 
 def check_aliasing(output_signal):
-    output_length = int(duration / time_step)
-
     abs_output_signal = np.abs(output_signal)
     mag_max_position = np.argmax(abs_output_signal)  # 1) Locate the maximum magnitude of the absolute output signal
-    print(mag_max_position)
-    mag_max = max(abs_output_signal)
-    print(mag_max)
 
-    energy_max_list = []
-    for i in abs_output_signal[mag_max_position - window_width:mag_max_position + window_width + 1]:
-        energy = i ** 2
-        energy_max_list.append(energy)
-    energy_max = sum(energy_max_list)
+    energy_max = 0
+    for output_value in abs_output_signal[mag_max_position - window_width:mag_max_position + window_width + 1]:
+        energy_max += output_value ** 2
     print(energy_max)
 
-    mag_end_position = output_length
-    print(mag_end_position)
-    mag_end = output_signal[mag_end_position]
-    print(mag_end)
-
-    energy_end_list = []
-    for i in abs_output_signal[mag_end_position - 2 * window_width - 1:mag_end_position]:
-        energy = i ** 2
-        energy_end_list.append(energy)
-    energy_end = sum(energy_end_list)
+    energy_end = 0
+    for output_value in abs_output_signal[-1 - 2 * window_width - 1:-1]:
+        energy_end = output_value ** 2
     print(energy_end)
 
     print(energy_end / energy_max)
@@ -161,7 +152,7 @@ def check_aliasing(output_signal):
     if energy_end / energy_max < thr:
         print("No aliasing occurs!!!")
     else:
-        raise Exception("Error: Aliasing occurs on signal " + str(j) + "!!!")
+        raise Exception("Error: Aliasing occurs!!!")
 
 
 def calculate_transfer_function(input_signal, output_signal):
@@ -197,14 +188,15 @@ def save_transfer_function(csv_save_path, magnitude_list):
     print("All transfer functions' data output finished!")
 
 
-def main(parameter_analysis_name, parameter_value):
+def main(parameter_analysis_name):
 
     starttime = datetime.datetime.now()
-    path_odb = os.path.abspath(parameter_analysis_name)
-    os.chdir(path_odb)
 
-    csv_save_path = create_folder(parameter_value)
-    save_output_data_csv(csv_save_path)
+    path_odb = odb_path(parameter_analysis_name)
+
+    csv_save_path = create_folder(path_odb)
+
+    save_output_data_csv(path_odb, csv_save_path)
     print('All data-output is complete!')
 
     num = np.arange(0, len(nl.main()), 1)
@@ -236,4 +228,4 @@ if __name__ == '__main__':
     parameter_list = list(map(float, parameter))
 
     for value in parameter_list:
-        main(key_parameter + '-' + str(value), value)
+        main(key_parameter + '-' + str(value))
