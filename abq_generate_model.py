@@ -28,10 +28,10 @@ def generate_grid(num_aggregate_slice, delta_y, delta_z):
     if value_list[3] == 0:
         noise_radius = 0
     else:
-        noise_radius = noise_radius_default
+        noise_radius = radius_gravel_default
 
     grid_list = []
-    delta_x = (grid_right_limit_length_default - grid_left_limit_length_default)/(num_aggregate_slice-1)
+    delta_x = (grid_right_limit_length - grid_left_limit_length)/(num_aggregate_slice-1)
     x = [round(i, 2) for i in np.arange(grid_left_limit_length, grid_right_limit_length, delta_x)]
     y = [round(i, 2) for i in np.arange(grid_left_limit_width, grid_right_limit_width, delta_y)]
     z = [round(i, 2) for i in np.arange(grid_left_limit_depth, grid_right_limit_depth, delta_z)]
@@ -256,13 +256,17 @@ def define_history_output():
                                                region=regionDef, sectionPoints=DEFAULT, rebar=EXCLUDE)
 
 
-def write_input_file():
-    mdb.Job(name='Analysis', model='Model-1', type=ANALYSIS, resultsFormat=ODB)
-    mdb.jobs['Analysis'].writeInput(consistencyChecking=OFF)
-    mdb.jobs['Analysis'].waitForCompletion()
+def write_input_file(coding):
+    mdb.Job(name='Job-' + coding, model='Model-1', type=ANALYSIS, resultsFormat=ODB)
+    mdb.jobs['Job-' + coding].writeInput(consistencyChecking=OFF)
+    mdb.jobs['Job-' + coding].waitForCompletion()
 
 
-def main(folder_path):
+def restart_job(old_job_name):
+    mdb.models['Model-1'].setValues(restartJob=old_job_name, restartStep='Step-1')
+
+
+def main(folder_path, coding):
 
     os.chdir(folder_path)
 
@@ -270,7 +274,7 @@ def main(folder_path):
     create_aggregate(radius_gravel)
 
     material_properties_concrete(density_girder, youngs_modulus_girder, poissons_ratio_girder, alpha_damping_girder, beta_damping_girder)
-    material_properties_gravel(density_gravel, youngs_modulus_gravel, poissons_ratio_gravel)
+    material_properties_gravel(density_gravel, youngs_modulus_aggregate, poissons_ratio_aggregate)
 
     if aggregates_insert:
         insert_aggregates()
@@ -287,43 +291,36 @@ def main(folder_path):
 
     apply_load(load_value)
     define_history_output()
-    write_input_file()
+    write_input_file(coding)
 
 
 if __name__ == '__main__':
     mesh_size_girder = 0.01
+    density_girder = 2400.0
+    alpha_damping_girder = 12.5651
+    beta_damping_girder = 1.273E-8
+
     length_girder_default = 1.45
     width_girder_default = 0.10
     depth_girder_default = 0.10
-    density_girder_default = 2400.0
+
     youngs_modulus_girder_default = 3E10
     poissons_ratio_girder_default = 0.20
-    alpha_damping_girder_default = 12.5651
-    beta_damping_girder_default = 1.273E-8
+    youngs_modulus_aggregate_default = 5E10
+    poissons_ratio_aggregate_default = 0.30
+
+    mesh_size_aggregate = 0.002
+    delta_y_gravel = 0.02
+    delta_z_gravel = 0.02
+    density_gravel = 2860
 
     radius_gravel_default = 0.005
-    mesh_size_aggregate_default = 0.002
-    delta_y_gravel_default = 0.02
-    delta_z_gravel_default = 0.02
-    density_gravel_default = 2860
-    youngs_modulus_gravel_default = 5E10
-    poissons_ratio_gravel_default = 0.30
-
-    noise_radius_default = radius_gravel_default
-    grid_right_limit_length_default = 1.35 - 2*radius_gravel_default + 0.0001
-    grid_right_limit_width_default = 0.1 - 2*radius_gravel_default + 0.0001
-    grid_right_limit_depth_default = 0.1 - 2*radius_gravel_default + 0.0001
-    grid_left_limit_length_default = 0.01
-    grid_left_limit_width_default = 0.01
-    grid_left_limit_depth_default = 0.01
-
-    grid_list_4 = generate_grid(4, delta_y_gravel, delta_y_gravel)
-    grid_list_8 = generate_grid(8, delta_y_gravel, delta_y_gravel)
-    grid_list_12 = generate_grid(12, delta_y_gravel, delta_y_gravel)
-    grid_list_16 = generate_grid(16, delta_y_gravel, delta_y_gravel)
-    grid_list_20 = generate_grid(20, delta_y_gravel, delta_y_gravel)
-    grid_list_24 = generate_grid(24, delta_y_gravel, delta_y_gravel)
-    grid_list = [grid_list_4, grid_list_8, grid_list_12, grid_list_16, grid_list_20, grid_list_24]
+    grid_right_limit_length = 1.35 - 2*radius_gravel_default + 0.0001
+    grid_right_limit_width = 0.1 - 2*radius_gravel_default + 0.0001
+    grid_right_limit_depth = 0.1 - 2*radius_gravel_default + 0.0001
+    grid_left_limit_length = 0.01
+    grid_left_limit_width = 0.01
+    grid_left_limit_depth = 0.01
 
     time_step = 1E-6
     duration = 3
@@ -338,8 +335,12 @@ if __name__ == '__main__':
     value_list = list(map(float, value))
     print(value_list)
 
-    # key_parameter = sys.argv[-2]
-    # key_parameter = key_parameter.strip("[]").split(",")
+    grid_list_4 = generate_grid(4, delta_y_gravel, delta_y_gravel)
+    grid_list_8 = generate_grid(8, delta_y_gravel, delta_y_gravel)
+    grid_list_12 = generate_grid(12, delta_y_gravel, delta_y_gravel)
+    grid_list_16 = generate_grid(16, delta_y_gravel, delta_y_gravel)
+    grid_list_20 = generate_grid(20, delta_y_gravel, delta_y_gravel)
+    grid_list = [grid_list_4, grid_list_8, grid_list_12, grid_list_16, grid_list_20]
 
     if value_list[0] == 0:
         youngs_modulus_girder = youngs_modulus_girder_default
@@ -347,8 +348,10 @@ if __name__ == '__main__':
         youngs_modulus_girder = value_list[0]
 
     if value_list[1] == 0:
+        aggregates_insert = False
         print("no aggregates!")
     else:
+        aggregates_insert = True
         # to fix the position of the aggregates, create the grid only once at first.
         num_aggregate_slice = int(value_list[1])
         grid_list = grid_list[(int(num_aggregate_slice/4))-1]
@@ -362,9 +365,9 @@ if __name__ == '__main__':
         youngs_modulus_aggregate = value_list[2]
 
     if value_list[4] == 0:
-        size_aggregate = size_aggregate_default
+        radius_gravel = radius_gravel_default
     else:
-        size_aggregate = value_list[4]
+        radius_gravel = value_list[4]/2
 
     if value_list[5] == 0:
         length_girder = length_girder_default
@@ -391,64 +394,5 @@ if __name__ == '__main__':
     else:
         poissons_ratio_aggregate = value_list[9]
 
-    main(path_work)
-
-    # if "youngs_modulus_girder" == key_parameter:
-    #     for value in parameter_list:
-    #         youngs_modulus_girder = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', youngs_modulus_girder)
-    #         main(path_work)
-    #
-    # elif "number_of_aggregates" == key_parameter:
-    #     for value in parameter_list:
-    #         number_of_aggregates = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', number_of_aggregates)
-    #         main(path_work)
-    #
-    # elif "youngs_modulus_aggregate" == key_parameter:
-    #     for value in parameter_list:
-    #         youngs_modulus_aggregate = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', youngs_modulus_aggregate)
-    #         main(path_work)
-    #
-    # elif "position_of_aggregates" == key_parameter:
-    #     for value in parameter_list:
-    #         position_of_aggregates = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', position_of_aggregates)
-    #         main(path_work)
-    #
-    # elif "size_aggregate" == key_parameter:
-    #     for value in parameter_list:
-    #         radius_gravel = value/2
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', radius_gravel)
-    #         main(path_work)
-    #
-    # elif "length_girder" == key_parameter:
-    #     for value in parameter_list:
-    #         length_girder = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', length_girder)
-    #         main(path_work)
-    #
-    # elif "depth_girder" == key_parameter:
-    #     for value in parameter_list:
-    #         depth_girder = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', depth_girder)
-    #         main(path_work)
-    #
-    # elif "width_girder" == key_parameter:
-    #     for value in parameter_list:
-    #         width_girder = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', width_girder)
-    #         main(path_work)
-    #
-    # elif "poissons_ratio_girder" == key_parameter:
-    #     for value in parameter_list:
-    #         poissons_ratio_girder = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', poissons_ratio_girder)
-    #         main(path_work)
-    #
-    # elif "poissons_ratio_aggregate" == key_parameter:
-    #     for value in parameter_list:
-    #         poissons_ratio_aggregate = value
-    #         print('the parameter under analysis is' + key_parameter + ', value is ', poissons_ratio_aggregate)
-    #         main(path_work)
+    coding = sys.argv[-3]
+    main(path_work, coding)

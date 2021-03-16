@@ -29,28 +29,17 @@ import abq_node_list as nl
 # =============================================================================
 # this python file is for Hostory data exporting, which are exported into csv files.
 # =============================================================================
-length_girder = 1.45
-width_girder = 0.10
-mesh_size_girder = 0.01
-
-duration = 3
-time_step = 1E-6
-
-thr = 1E-5
-window_width = 5
-
-parent_path = os.path.dirname(os.path.abspath('abq_analysis.py'))
 
 
-def odb_path(parameter_analysis_name):
-    os.chdir(os.path.join(parent_path, parameter_analysis_name))
-    path_odb = os.path.abspath('Analysis.odb')
+def odb_path(path, sequence):
+    os.chdir(path)
+    path_odb = os.path.abspath('Job-'+str(sequence)+'.odb')
     return path_odb
 
 
-def create_folder(path_odb):
-    os.mkdir(os.path.join(os.path.dirname(path_odb), 'output_csv'))
-    csv_save_path = os.path.join(os.path.join(os.path.dirname(path_odb), 'output_csv'))
+def create_folder():
+    os.mkdir(os.path.join(parameter_analysis_path, 'output_csv'))
+    csv_save_path = os.path.join(parameter_analysis_path, 'output_csv')
     return csv_save_path
 
 
@@ -177,7 +166,7 @@ def save_transfer_function(csv_save_path, magnitude_list):
     with open(os.path.join(path_csv, file), 'w') as csv.file:
         pass
 
-    path = path_csv + '/' + file
+    path = os.path.join(path_csv, file)
     file1 = open(path, 'w')
     writer = csv.writer(file1, dialect='excel')
 
@@ -188,13 +177,13 @@ def save_transfer_function(csv_save_path, magnitude_list):
     print("All transfer functions' data output finished!")
 
 
-def main(parameter_analysis_name):
+def main(parameter_analysis_name, sequence):
 
     starttime = datetime.datetime.now()
 
-    path_odb = odb_path(parameter_analysis_name)
+    path_odb = odb_path(parameter_analysis_name, sequence)
 
-    csv_save_path = create_folder(path_odb)
+    csv_save_path = create_folder()
 
     save_output_data_csv(path_odb, csv_save_path)
     print('All data-output is complete!')
@@ -221,11 +210,13 @@ def main(parameter_analysis_name):
   
     
 if __name__ == '__main__':
-    parameter = sys.argv[-1]
-    parameter = parameter.strip("[]").split(" ")
+    duration = 3
+    time_step = 1E-6
 
-    key_parameter = sys.argv[-2]
-    parameter_list = list(map(float, parameter))
+    thr = 1E-5
+    window_width = 5
 
-    for value in parameter_list:
-        main(key_parameter + '-' + str(value))
+    parameter_analysis_path = sys.argv[-1]
+    sequence = sys.argv[-2]
+
+    main(parameter_analysis_path, sequence)

@@ -10,21 +10,29 @@ import excitation as ex
 
 parent_path = os.path.dirname(os.path.abspath('abq_analysis.py'))
 
-youngs_modulus_aggregate_start = 40E9
-youngs_modulus_aggregate_end = 42E9
-youngs_modulus_aggregate_step = 5E8
-
-youngs_modulus_girder_start = 29E9
-youngs_modulus_girder_end = 32E9
+youngs_modulus_girder_start = 30.5E9
+youngs_modulus_girder_end = 31E9
 youngs_modulus_girder_step = 5E8
 
-mesh_size_aggregate_start = 0.002
-mesh_size_aggregate_end = 0.008
-mesh_size_aggregate_step = 0.002
+youngs_modulus_aggregate_start = 40E9
+youngs_modulus_aggregate_end = 41E9
+youngs_modulus_aggregate_step = 5E8
 
-size_aggregate_start = 0.005
+size_aggregate_start = 0.009
 size_aggregate_end = 0.010
 size_aggregate_step = 0.001
+
+length_girder_start = 1.4
+length_girder_end = 1.5
+length_girder_step = 0.05
+
+depth_girder_start = 0.10
+depth_girder_end = 0.11
+depth_girder_step = 0.05
+
+width_girder_start = 0.10
+width_girder_end = 0.11
+width_girder_step = 0.05
 
 
 def specify_parameter_range(start, end, step_size):
@@ -34,14 +42,14 @@ def specify_parameter_range(start, end, step_size):
         raise Exception("step_size has to be positive")
 
     parameter_range = list(np.linspace(start, end, math.ceil(((end - start) / step_size) + 1)))
-    parameter_range.insert(0,0)
+    parameter_range.insert(0, 0)
     return parameter_range
 
 
-def create_folder(parent_path,folder_name):
+def create_folder(parent_path, folder_name):
     os.chdir(parent_path)
-    os.mkdir(os.path.join(os.path.dirname(parent_path), folder_name))
-    parameter_analysis_path = os.path.join(os.path.join(os.path.dirname(parent_path), folder_name))
+    os.mkdir(os.path.join(parent_path, folder_name))
+    parameter_analysis_path = os.path.join(os.path.join(parent_path, folder_name))
     return parameter_analysis_path
 
 
@@ -54,11 +62,11 @@ if __name__ == "__main__":
     parameter_switcher = {
         "youngs_modulus_girder": specify_parameter_range(youngs_modulus_girder_start, youngs_modulus_girder_end,
                                                          youngs_modulus_girder_step),
-        "number_of_aggregates": [10, 20],
+        "number_of_aggregates": [0, 8],
         "youngs_modulus_aggregate": specify_parameter_range(youngs_modulus_aggregate_start,
                                                             youngs_modulus_aggregate_end,
                                                             youngs_modulus_aggregate_step),
-        "position_of_aggregates": [1, 2],
+        "position_of_aggregates": [0, 1],
         "size_aggregate": specify_parameter_range(size_aggregate_start, size_aggregate_end, size_aggregate_step),
         "length_girder": specify_parameter_range(length_girder_start, length_girder_end, length_girder_step),
         "depth_girder": specify_parameter_range(depth_girder_start, depth_girder_end, depth_girder_step),
@@ -67,11 +75,9 @@ if __name__ == "__main__":
         "poissons_ratio_aggregate": [1, 2]
     }
 
-    key_parameter = list(parameter_switcher.keys())
-    print(key_parameter)
-
+    parameter_analysis_path = create_folder(parent_path, 'analysis')
     for value10 in parameter_switcher["poissons_ratio_aggregate"]:
-        parameter_analysis_path = create_folder(parent_path,
+        parameter_analysis_path = create_folder(parameter_analysis_path,
                                                 "poissons_ratio_aggregate_" + str(float('%.2g' % value10)))
         for value9 in parameter_switcher["poissons_ratio_girder"]:
             parameter_analysis_path = create_folder(parameter_analysis_path,
@@ -97,26 +103,33 @@ if __name__ == "__main__":
                                     for value2 in parameter_switcher["number_of_aggregates"]:
                                         parameter_analysis_path = create_folder(parameter_analysis_path,
                                                                                 "number_of_aggregates_" + str(float('%.2g' % value2)))
+                                        coding = 1
                                         for value1 in parameter_switcher["youngs_modulus_girder"]:
-                                            parameter_analysis_path = create_folder(parameter_analysis_path,
-                                                                                    "youngs_modulus_girder_" + str(float('%.2g' % value1)))
-
+                                            coding += 1
                                             value_list = [value1, value2, value3, value4, value5, value6, value7, value8, value9, value10]
 
                                             os.chdir(parent_path)
 
-                                            subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_generate_model.py', '--',
+                                            subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_generate_model.py', '--', str(coding),
                                                             parameter_analysis_path, str(value_list)])
 
+                                        for sequence in np.arange(1, len(parameter_switcher["youngs_modulus_girder"])+1, 3):
                                             os.chdir(parameter_analysis_path)
-
-                                            subprocess.run('/prog/abaqus/2020/bin/abaqus interactive job=Job-1.inp cpus=6 domains=6 mp_mode=threads parallel=domain double=explicit '
-                                                           '& /prog/abaqus/2020/bin/abaqus interactive job=Job-2.inp cpus=6 domains=6 mp_mode=threads parallel=domain double=explicit '
-                                                           '& /prog/abaqus/2020/bin/abaqus interactive job=Job-3.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit',
+                                            subprocess.run('/prog/abaqus/2020/bin/abaqus interactive job=Job-'+str(sequence)+'.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit '
+                                                           '& /prog/abaqus/2020/bin/abaqus interactive job=Job-'+str(sequence+1)+'.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit '
+                                                           '& /prog/abaqus/2020/bin/abaqus interactive job=Job-'+str(sequence+2)+'.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit',
                                                             shell=True, check=True)
+                                            if exit(1):
+                                                subprocess.run('/prog/abaqus/2020/bin/abaqus interactive restart job='+str(sequence)+'.inp step=Step-1 cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit '
+                                                               '& /prog/abaqus/2020/bin/abaqus interactive restart job='+str(sequence+1)+'.inp step=Step-1 cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit '
+                                                               '& /prog/abaqus/2020/bin/abaqus interactive restart job='+str(sequence+2)+'.inp step=Step-1 cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit ',
+                                                                shell=True, check=True)
+                                                # if error occurred, the simulations will stop, with restart-job we can restart the job from end of the step.
 
-                                        os.chdir(parent_path)
-                                        subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_result_export.py', '--', str(key_parameter), str(parameter_switcher[key_parameter])])
+                                        for sequence1 in np.arange(1, len(parameter_switcher["youngs_modulus_girder"])+1, 1):
+                                            os.chdir(parent_path)
+                                            subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_result_export.py', '--',
+                                                            str(sequence1), parameter_analysis_path])
 
     endtime = datetime.datetime.now()
     print('runtime =', endtime - starttime)
