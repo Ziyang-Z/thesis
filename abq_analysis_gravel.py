@@ -107,6 +107,7 @@ if __name__ == "__main__":
 
                 parameters_dict = check_default_parameters(analysis_parameters,
                                                            default_parameters)
+                print(parameters_dict)
                 try:
                     subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae',
                                     'noGUI=abq_generate_model.py', '--', str(coding),
@@ -115,7 +116,7 @@ if __name__ == "__main__":
                     text_create('error.txt', str(parameters_dict))
                     continue
 
-            for sequence in np.arange(1,len(parameter_switcher["youngs_modulus_girder"]) + 1, 3):
+            for sequence in np.arange(1,len(parameter_switcher["number_of_aggregates"]) + 1, 3):
                 os.chdir(second_level_subfolder_path)
                 try:
                     subprocess.run('/prog/abaqus/2020/bin/abaqus interactive job=Job-' + str(sequence) + '.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit '
@@ -126,7 +127,7 @@ if __name__ == "__main__":
                     text_create('error.txt', str('Job-'+str(sequence)+'failed'))
                     continue
 
-            for sequence1 in np.arange(1, len(parameter_switcher["youngs_modulus_girder"]) + 1, 1):
+            for sequence1 in np.arange(1, len(parameter_switcher["number_of_aggregates"]) + 1, 1):
                 os.chdir(parent_path)
                 subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_result_export.py', '--',
                                 str(sequence1), second_level_subfolder_path])

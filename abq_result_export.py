@@ -70,7 +70,7 @@ def save_output_data_csv(path_odb, csv_save_path):
     file1.close()
 
     s = 0
-    num = nl.main()
+    num = nl.choose_node()
     for i in num:
         region = step1.historyRegions['Node CONCRETE-1.' + str(i)]
         u1_data = region.historyOutputs['U2'].data

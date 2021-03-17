@@ -13,14 +13,14 @@ all_nodes = False
 
 def double_line_node_list():
     d = (width_girder/mesh_size_girder + 1)**2
-    a1 = 1 + (width_girder/mesh_size_girder + 1)*(width_girder/mesh_size_girder/4)
+    a1 = 1 + (width_girder/mesh_size_girder + 1)*(width_girder/mesh_size_girder//4+1)
     n = length_girder/mesh_size_girder + 1
     an = a1 + (n - 1)*d
     # m = int(length_girder/mesh_size_girder//100)
     nodes_left = np.arange(int(a1), int(an+1), int(d))
     nodes_left = nodes_left[::-1]
 
-    a1 = 1 + (width_girder/mesh_size_girder + 1)*(width_girder/mesh_size_girder/4*3)
+    a1 = 1 + (width_girder/mesh_size_girder + 1)*(width_girder/mesh_size_girder//4 * 3+1)
     n = length_girder/mesh_size_girder + 1
     an = a1 + (n - 1)*d
     # m = int(length_girder/mesh_size_girder//100)
