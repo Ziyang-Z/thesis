@@ -76,7 +76,7 @@ def save_output_data_csv(path_odb, csv_save_path):
         u1_data = region.historyOutputs['U2'].data
 
         file = 'output-' + str(s) + '.csv'
-        with open(os.path.join(path_csv, file), 'w') as csv.file:
+        with open(os.path.join(path_current, file), 'w') as csv.file:
             pass
 
         path = file
@@ -127,6 +127,7 @@ def check_aliasing(output_signal):
     mag_max_position = np.argmax(abs_output_signal)  # 1) Locate the maximum magnitude of the absolute output signal
 
     energy_max = 0
+    window_width = window_width_default
     for output_value in abs_output_signal[mag_max_position - window_width:mag_max_position + window_width + 1]:
         energy_max += output_value ** 2
     print(energy_max)
@@ -137,8 +138,8 @@ def check_aliasing(output_signal):
     print(energy_end)
 
     print(energy_end / energy_max)
-
-    if energy_end / energy_max < thr:
+    threshold = threshold_default
+    if energy_end / energy_max < threshold:
         print("No aliasing occurs!!!")
     else:
         raise Exception("Error: Aliasing occurs!!!")
@@ -151,8 +152,8 @@ def calculate_transfer_function(input_signal, output_signal):
     input_fft = fft(input_signal)                                                      # input data dft.
     input_fft[0] = input_fft[0] * 0.5
 
-    tf = np.divide(output_fft, input_fft)                                              # Transfer function's calculation: tf = dis_dft/force_dft.
-    magnitude = np.abs(tf[0:len(output_fft) // 2])
+    tf = np.divide(output_fft, input_fft)
+    magnitude = np.abs(tf[0:len(output_fft) // 2]) * 2
     # im = np.imag(tf)
     # re = np.real(tf)
     # phase = np.arctan2(im, re)
@@ -213,8 +214,8 @@ if __name__ == '__main__':
     duration = 3
     time_step = 1E-6
 
-    thr = 1E-5
-    window_width = 5
+    threshold_default = 1E-5
+    window_width_default = 5
 
     parameter_analysis_path = sys.argv[-1]
     sequence = sys.argv[-2]

@@ -24,35 +24,30 @@ import os
 import abq_node_list as nl
 
 
-def generate_grid(num_aggregate_slice, delta_y, delta_z):
-    if value_list[3] == 0:
-        noise_radius = 0
-    else:
-        noise_radius = radius_gravel_default
-
+def generate_grid(number_of_aggregates, delta_y, delta_z):
     grid_list = []
-    delta_x = (grid_right_limit_length - grid_left_limit_length)/(num_aggregate_slice-1)
+    delta_x = (grid_right_limit_length - grid_left_limit_length)/(number_of_aggregates/num_aggregate_each_slice)
     x = [round(i, 2) for i in np.arange(grid_left_limit_length, grid_right_limit_length, delta_x)]
     y = [round(i, 2) for i in np.arange(grid_left_limit_width, grid_right_limit_width, delta_y)]
     z = [round(i, 2) for i in np.arange(grid_left_limit_depth, grid_right_limit_depth, delta_z)]
     for x_point in x:
         for y_point in y:
             for z_point in z:
-                dx = random.uniform(x_point - noise_radius, x_point + noise_radius)
+                dx = random.uniform(x_point - noise_radius, x_point + noise_radius_Horizontal)
                 dy = random.uniform(y_point - noise_radius, y_point + noise_radius)
                 dz = random.uniform(z_point - noise_radius, z_point + noise_radius)
                 grid_list.append((dx, dy, dz))
     return grid_list
 
 
-def collide_check():
+def collide_check(number_of_aggregates):
     if grid_left_limit_length - noise_radius < radius_gravel:
         raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'grid_left_limit_length' again!")
     if grid_left_limit_depth - noise_radius < radius_gravel:
         raise Exception("Error: gravels out of the boundary at rectangular-plane! Modify 'grid_left_limit_depth' again!")
     else:
         print('Feasible at the boundary!')
-        delta_x = float(delta_x_gravel)
+        delta_x = (grid_right_limit_length - grid_left_limit_length)/(number_of_aggregates/num_aggregate_each_slice)
         delta_z = float(delta_y_gravel)
         if delta_x - 2*noise_radius < 2*radius_gravel:
             raise Exception("Error: the gravels may get collide in x-direction! Modify 'delta_x' again!")
@@ -233,7 +228,7 @@ def apply_load(Load):
 
 
 def define_history_output():
-    num = nl.main()
+    num = nl.choose_node()
     print('the selected nodes are ', num)
     print(len(num))
     p = mdb.models['Model-1'].parts['Concrete']
@@ -299,25 +294,14 @@ if __name__ == '__main__':
     density_girder = 2400.0
     alpha_damping_girder = 12.5651
     beta_damping_girder = 1.273E-8
-
-    length_girder_default = 1.45
-    width_girder_default = 0.10
-    depth_girder_default = 0.10
-
-    youngs_modulus_girder_default = 3E10
-    poissons_ratio_girder_default = 0.20
-    youngs_modulus_aggregate_default = 5E10
-    poissons_ratio_aggregate_default = 0.30
-
     mesh_size_aggregate = 0.002
     delta_y_gravel = 0.02
     delta_z_gravel = 0.02
     density_gravel = 2860
 
-    radius_gravel_default = 0.005
-    grid_right_limit_length = 1.35 - 2*radius_gravel_default + 0.0001
-    grid_right_limit_width = 0.1 - 2*radius_gravel_default + 0.0001
-    grid_right_limit_depth = 0.1 - 2*radius_gravel_default + 0.0001
+    grid_right_limit_length = 1.35 + 0.0001
+    grid_right_limit_width = 0.09 + 0.0001
+    grid_right_limit_depth = 0.09 + 0.0001
     grid_left_limit_length = 0.01
     grid_left_limit_width = 0.01
     grid_left_limit_depth = 0.01
@@ -331,68 +315,45 @@ if __name__ == '__main__':
 
     # call the parameters.
     value = sys.argv[-1]
-    value = value.strip("[]").split(",")
-    value_list = list(map(float, value))
-    print(value_list)
+    value = value.replace(' ', '').strip("{}").split(",")
+    register = []
+    for i in value:
+        register.append(i.split(":"))
+    parameters_dict = {}
+    for j in register:
+        key = j[0].strip("''")
+        parameters_dict[key] = float(j[1])
 
-    grid_list_4 = generate_grid(4, delta_y_gravel, delta_y_gravel)
-    grid_list_8 = generate_grid(8, delta_y_gravel, delta_y_gravel)
-    grid_list_12 = generate_grid(12, delta_y_gravel, delta_y_gravel)
-    grid_list_16 = generate_grid(16, delta_y_gravel, delta_y_gravel)
-    grid_list_20 = generate_grid(20, delta_y_gravel, delta_y_gravel)
+    youngs_modulus_girder = parameters_dict["youngs_modulus_girder"]
+    number_of_aggregates = parameters_dict["number_of_aggregates"]
+    youngs_modulus_aggregate = parameters_dict["youngs_modulus_aggregate"]
+    noise_radius = parameters_dict["position_of_aggregates"]
+    noise_radius_Horizontal = 5*noise_radius
+    radius_gravel = parameters_dict["size_aggregate"] / 2
+    length_girder = parameters_dict["length_girder"]
+    depth_girder = parameters_dict["depth_girder"]
+    width_girder = parameters_dict["width_girder"]
+    poissons_ratio_girder = parameters_dict["poissons_ratio_girder"]
+    poissons_ratio_aggregate = parameters_dict["poissons_ratio_aggregate"]
+
+    num_aggregate_each_slice = ((grid_right_limit_width - grid_left_limit_width)//delta_y_gravel + 1)**2
+    grid_list_4 = generate_grid(100, delta_y_gravel, delta_y_gravel)
+    grid_list_8 = generate_grid(200, delta_y_gravel, delta_y_gravel)
+    grid_list_12 = generate_grid(300, delta_y_gravel, delta_y_gravel)
+    grid_list_16 = generate_grid(400, delta_y_gravel, delta_y_gravel)
+    grid_list_20 = generate_grid(500, delta_y_gravel, delta_y_gravel)
     grid_list = [grid_list_4, grid_list_8, grid_list_12, grid_list_16, grid_list_20]
 
-    if value_list[0] == 0:
-        youngs_modulus_girder = youngs_modulus_girder_default
-    else:
-        youngs_modulus_girder = value_list[0]
-
-    if value_list[1] == 0:
+    if parameters_dict["number_of_aggregates"] == 0:
         aggregates_insert = False
         print("no aggregates!")
     else:
         aggregates_insert = True
         # to fix the position of the aggregates, create the grid only once at first.
-        num_aggregate_slice = int(value_list[1])
-        grid_list = grid_list[(int(num_aggregate_slice/4))-1]
-        collide_check()
+        grid_list = grid_list[int(number_of_aggregates/num_aggregate_each_slice/4-1)]
+        collide_check(number_of_aggregates)
         sum_aggregates = len(grid_list)
         print("the number of the aggregates is ", sum_aggregates)
-
-    if value_list[2] == 0:
-        youngs_modulus_aggregate = youngs_modulus_aggregate_default
-    else:
-        youngs_modulus_aggregate = value_list[2]
-
-    if value_list[4] == 0:
-        radius_gravel = radius_gravel_default
-    else:
-        radius_gravel = value_list[4]/2
-
-    if value_list[5] == 0:
-        length_girder = length_girder_default
-    else:
-        length_girder = value_list[5]
-
-    if value_list[6] == 0:
-        depth_girder = depth_girder_default
-    else:
-        depth_girder = value_list[6]
-
-    if value_list[7] == 0:
-        width_girder = width_girder_default
-    else:
-        width_girder = value_list[7]
-
-    if value_list[8] == 0:
-        poissons_ratio_girder = poissons_ratio_girder_default
-    else:
-        poissons_ratio_girder = value_list[8]
-
-    if value_list[9] == 0:
-        poissons_ratio_aggregate = poissons_ratio_aggregate_default
-    else:
-        poissons_ratio_aggregate = value_list[9]
 
     coding = sys.argv[-3]
     main(path_work, coding)

@@ -2,7 +2,7 @@
 
 
 import numpy as np
-from scipy.fft import fft
+from scipy import fft
 import os
 import warnings
 import csv
