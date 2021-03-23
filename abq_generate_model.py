@@ -17,30 +17,17 @@ from connectorBehavior import *
 import numpy as np
 import csv
 import random
+import logging
+import traceback
 import math
 import sys
 import os
 
 import abq_node_list as nl
+import create_grid as cg
 
 
-def generate_grid(number_of_aggregates, delta_y, delta_z):
-    grid_list = []
-    delta_x = (grid_right_limit_length - grid_left_limit_length)/(number_of_aggregates/num_aggregate_each_slice)
-    x = [round(i, 2) for i in np.arange(grid_left_limit_length, grid_right_limit_length, delta_x)]
-    y = [round(i, 2) for i in np.arange(grid_left_limit_width, grid_right_limit_width, delta_y)]
-    z = [round(i, 2) for i in np.arange(grid_left_limit_depth, grid_right_limit_depth, delta_z)]
-    for x_point in x:
-        for y_point in y:
-            for z_point in z:
-                dx = random.uniform(x_point - noise_radius, x_point + noise_radius_Horizontal)
-                dy = random.uniform(y_point - noise_radius, y_point + noise_radius)
-                dz = random.uniform(z_point - noise_radius, z_point + noise_radius)
-                grid_list.append((dx, dy, dz))
-    return grid_list
-
-
-def collide_check(number_of_aggregates):
+def collide_check(number_of_aggregates, radius_gravel):
     if grid_left_limit_length - noise_radius < radius_gravel:
         raise Exception("Error: gravels out of the boundary at YZ-plane! Modify 'grid_left_limit_length' again!")
     if grid_left_limit_depth - noise_radius < radius_gravel:
@@ -82,7 +69,8 @@ def create_aggregate(radius):
                                                        point2=(0.0, radius))  # Closing the arc to create semi circle
     mdb.models['Model-1'].sketches['__profile__'].VerticalConstraint(entity=mdb.models['Model-1'].sketches['__profile__'].geometry[4])
     mdb.models['Model-1'].Part(dimensionality=THREE_D, name='Gravel', type=DEFORMABLE_BODY)  # Setting the type and dimensionality of the sketch ie it should be 3d
-    mdb.models['Model-1'].parts['Gravel'].BaseSolidRevolve(angle=360.0, flipRevolveDirection=OFF, sketch=mdb.models['Model-1'].sketches['__profile__'])  # Revolving the geometry
+    mdb.models['Model-1'].parts['Gravel'].BaseSolidRevolve(angle=360.0, flipRevolveDirection=OFF,
+                                                           sketch=mdb.models['Model-1'].sketches['__profile__'])  # Revolving the geometry
     del mdb.models['Model-1'].sketches['__profile__']  # delete the sketch
 
 
@@ -95,7 +83,7 @@ def material_properties_concrete(density, youngs_modulus, poissons_ratio, dampin
     mdb.models['Model-1'].HomogeneousSolidSection(name='concrete', material='concrete', thickness=None)
     p = mdb.models['Model-1'].parts['Concrete']
     c = p.cells
-    cells = c.findAt(((0.725, 0.05, 0.05),))
+    cells = c.findAt(((0, 0, 0),))                         # findAt: any point in concrete.
     region = p.Set(cells=cells, name='Set-1')
     mdb.models['Model-1'].parts['Concrete'].SectionAssignment(region=region,
                                                               sectionName='concrete',
@@ -111,7 +99,10 @@ def material_properties_gravel(density, youngs_modulus, poissons_ratio):
     mdb.models['Model-1'].materials['gravel'].Density(table=((density,),))
     mdb.models['Model-1'].materials['gravel'].Elastic(table=((youngs_modulus, poissons_ratio),))
     mdb.models['Model-1'].HomogeneousSolidSection(name='gravel', material='gravel', thickness=None)
-    region = mdb.models['Model-1'].parts['Gravel'].Set(cells=mdb.models['Model-1'].parts['Gravel'].cells.findAt(((0, 0, 0), ),), name='Set-1')
+    p = mdb.models['Model-1'].parts['Gravel']
+    c = p.cells
+    cells = c.findAt(((0, 0, 0), ),)                                 # findAt: any point in gravel.
+    region = mdb.models['Model-1'].parts['Gravel'].Set(cells=cells, name='Set-1')
     mdb.models['Model-1'].parts['Gravel'].SectionAssignment(region=region,
                                                             sectionName='gravel',
                                                             offset=0.0,
@@ -125,7 +116,8 @@ def insert_aggregates():
     s = 0
     for i in np.array(grid_list):
         s = s+1
-        mdb.models['Model-1'].rootAssembly.Instance(name='Gravel_' + str(s), part=mdb.models['Model-1'].parts['Gravel'], dependent=ON)
+        mdb.models['Model-1'].rootAssembly.Instance(name='Gravel_' + str(s),
+                                                    part=mdb.models['Model-1'].parts['Gravel'], dependent=ON)
         mdb.models['Model-1'].rootAssembly.translate(instanceList=('Gravel_' + str(s),), vector=tuple(i))
 
     a = mdb.models['Model-1'].rootAssembly
@@ -173,14 +165,14 @@ def apply_analysisstep(duration, timeincrement):
                                                nlgeom=OFF, improvedDtMethod=ON)
 
 
-def apply_boundary_conditions():
-    edges1 = mdb.models['Model-1'].rootAssembly.instances['Concrete-1'].edges.findAt(((0, 0, 0.05), ))
+def apply_boundary_conditions(lenth_girder, width_girder):
+    edges1 = mdb.models['Model-1'].rootAssembly.instances['Concrete-1'].edges.findAt(((0, 0, width_girder), ))
     region = mdb.models['Model-1'].rootAssembly.Set(edges=edges1, name='left')
     mdb.models['Model-1'].DisplacementBC(name='Left',
                                          createStepName='Initial', region=region, u1=SET, u2=SET, u3=SET,
                                          ur1=UNSET, ur2=UNSET, ur3=UNSET, amplitude=UNSET,
                                          distributionType=UNIFORM, fieldName='', localCsys=None)
-    edges1 = mdb.models['Model-1'].rootAssembly.instances['Concrete-1'].edges.findAt(((1.45, 0, 0.05),))
+    edges1 = mdb.models['Model-1'].rootAssembly.instances['Concrete-1'].edges.findAt(((lenth_girder, 0, width_girder),))
     region = mdb.models['Model-1'].rootAssembly.Set(edges=edges1, name='right')
     mdb.models['Model-1'].DisplacementBC(name='Right',
                                          createStepName='Initial', region=region, u1=UNSET, u2=SET, u3=SET,
@@ -229,7 +221,6 @@ def apply_load(Load):
 
 def define_history_output():
     num = nl.choose_node()
-    print('the selected nodes are ', num)
     print(len(num))
     p = mdb.models['Model-1'].parts['Concrete']
     n = p.nodes
@@ -262,25 +253,26 @@ def restart_job(old_job_name):
 
 
 def main(folder_path, coding):
-
     os.chdir(folder_path)
 
-    create_girder(length_girder, width_girder, depth_girder)
-    create_aggregate(radius_gravel)
+    create_girder(parameters_dict["length_girder"], parameters_dict["width_girder"], parameters_dict["depth_girder"])
+    create_aggregate(parameters_dict["size_aggregate"] / 2)
 
-    material_properties_concrete(density_girder, youngs_modulus_girder, poissons_ratio_girder, alpha_damping_girder, beta_damping_girder)
-    material_properties_gravel(density_gravel, youngs_modulus_aggregate, poissons_ratio_aggregate)
+    material_properties_concrete(density_girder, parameters_dict["youngs_modulus_girder"],
+                                 parameters_dict["poissons_ratio_girder"], alpha_damping_girder, beta_damping_girder)
+    material_properties_gravel(density_gravel, parameters_dict["youngs_modulus_aggregate"],
+                               parameters_dict["poissons_ratio_aggregate"])
 
     if aggregates_insert:
         insert_aggregates()
-        print('this is the analysis of the concrete with aggregates')
+        logging.info('this is the analysis of the concrete with aggregates')
     else:
-        print('this is the analysis of the concrete only')
+        logging.info('this is the analysis of the concrete only')
 
     mesh_model(mesh_size_girder, mesh_size_aggregate)
 
     apply_analysisstep(duration, time_step)
-    apply_boundary_conditions()
+    apply_boundary_conditions(parameters_dict["length_girder"], parameters_dict["width_girder"])
 
     apply_amplitude(path_excitation)
 
@@ -295,20 +287,14 @@ if __name__ == '__main__':
     alpha_damping_girder = 12.5651
     beta_damping_girder = 1.273E-8
     mesh_size_aggregate = 0.002
-    delta_y_gravel = 0.02
-    delta_z_gravel = 0.02
     density_gravel = 2860
-
-    grid_right_limit_length = 1.35 + 0.0001
-    grid_right_limit_width = 0.09 + 0.0001
-    grid_right_limit_depth = 0.09 + 0.0001
-    grid_left_limit_length = 0.01
-    grid_left_limit_width = 0.01
-    grid_left_limit_depth = 0.01
 
     time_step = 1E-6
     duration = 3
     load_value = -1000
+
+    logging.basicConfig(filename='generate-model-log.txt', level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
 
     path_excitation = os.path.abspath('excitation.csv')
     path_work = sys.argv[-2]
@@ -324,36 +310,15 @@ if __name__ == '__main__':
         key = j[0].strip("''")
         parameters_dict[key] = float(j[1])
 
-    youngs_modulus_girder = parameters_dict["youngs_modulus_girder"]
-    number_of_aggregates = parameters_dict["number_of_aggregates"]
-    youngs_modulus_aggregate = parameters_dict["youngs_modulus_aggregate"]
-    noise_radius = parameters_dict["position_of_aggregates"]
-    noise_radius_Horizontal = 5*noise_radius
-    radius_gravel = parameters_dict["size_aggregate"] / 2
-    length_girder = parameters_dict["length_girder"]
-    depth_girder = parameters_dict["depth_girder"]
-    width_girder = parameters_dict["width_girder"]
-    poissons_ratio_girder = parameters_dict["poissons_ratio_girder"]
-    poissons_ratio_aggregate = parameters_dict["poissons_ratio_aggregate"]
-
-    num_aggregate_each_slice = ((grid_right_limit_width - grid_left_limit_width)//delta_y_gravel + 1)**2
-    grid_list_4 = generate_grid(100, delta_y_gravel, delta_y_gravel)
-    grid_list_8 = generate_grid(200, delta_y_gravel, delta_y_gravel)
-    grid_list_12 = generate_grid(300, delta_y_gravel, delta_y_gravel)
-    grid_list_16 = generate_grid(400, delta_y_gravel, delta_y_gravel)
-    grid_list_20 = generate_grid(500, delta_y_gravel, delta_y_gravel)
-    grid_list = [grid_list_4, grid_list_8, grid_list_12, grid_list_16, grid_list_20]
-
     if parameters_dict["number_of_aggregates"] == 0:
         aggregates_insert = False
-        print("no aggregates!")
+        logging.info("no aggregates!")
     else:
         aggregates_insert = True
-        # to fix the position of the aggregates, create the grid only once at first.
-        grid_list = grid_list[int(number_of_aggregates/num_aggregate_each_slice/4-1)]
-        collide_check(number_of_aggregates)
-        sum_aggregates = len(grid_list)
-        print("the number of the aggregates is ", sum_aggregates)
+        if parameter_dict["position_of_aggregates"] == 0:
+            grid_list = cg.evenly_grid(parameters_dict["number_of_aggregates"])
+        else:
+            grid_list = cg.random_grid(parameters_dict["number_of_aggregates"])
 
     coding = sys.argv[-3]
     main(path_work, coding)

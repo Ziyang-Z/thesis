@@ -1,6 +1,8 @@
 import numpy as np
 import subprocess
 import datetime
+import logging
+import traceback
 import numpy
 import math
 import sys
@@ -36,13 +38,6 @@ def create_folder(parent_path, folder_name):
     return parameter_analysis_path
 
 
-def text_create(path_name, msg):
-    location_path = os.getcwd()
-    file = open(os.path.join(location_path, path_name), 'w')
-    file.write(msg)
-    file.close()
-
-
 def check_default_parameters(parameters, default_parameters):
     parameters_key = parameters.keys()
     for key in parameters_key:
@@ -59,8 +54,7 @@ if __name__ == "__main__":
 
     parameter_switcher = {
         "youngs_modulus_girder": [0],
-        "number_of_aggregates": specify_parameter_range(number_of_aggregates_start,
-                                                        number_of_aggregates_end,
+        "number_of_aggregates": specify_parameter_range(number_of_aggregates_start, number_of_aggregates_end,
                                                         number_of_aggregates_step),
         "youngs_modulus_aggregate": [0],
         "position_of_aggregates": [0, 0.005],
@@ -82,18 +76,31 @@ if __name__ == "__main__":
                           "poissons_ratio_girder": 0.20,
                           "poissons_ratio_aggregate": 0.30}
 
+    logging.basicConfig(filename='analysis-log.txt', level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+    file_handle = logging.FileHandler('error.log', 'a')
+    file_handle.setFormatter(logging.Formatter(fmt='%(asctime)s - %(name)s - %(levelname)s - %(module)s: %(message)s',))
+    logger = logging.Logger('s1', level=logging.WARNING)
+    logger.addHandler(file_handle)
+
     os.chdir(parent_path)
     total_folder_path = create_folder(parent_path, 'analysis')
     for size_aggregate in parameter_switcher["size_aggregate"]:
-        first_level_subfolder_path = create_folder(total_folder_path,
-                                                   "size_a_" + str(float('%.2g' % size_aggregate)))
         for position_of_aggregates in parameter_switcher["position_of_aggregates"]:
-            second_level_subfolder_path = create_folder(first_level_subfolder_path,
-                                                         "position_a_" + str(float(
-                                                             '%.2g' % position_of_aggregates)))
-            coding = 0
+            subfolder_path = create_folder(total_folder_path,
+                                           "position_a=" + str(float('%.2g' % position_of_aggregates))
+                                           + "_size_a=" + str(float('%.2g' % size_aggregate)))
+            try:
+                if os.path.exists(subfolder_path):
+                    logging.info('the subfolder:'+subfolder_path+' exists, ready for analysis!')
+                else:
+                    raise Warning('Error occurred! the subfolder:'+subfolder_path+' not exists! Analysis cannot go on!')
+            except Warning:
+                logger.warning(traceback.format_exc())
+                continue
+
             for number_of_aggregates in parameter_switcher["number_of_aggregates"]:
-                coding += 1
+                coding = number_of_aggregates
                 analysis_parameters = {"youngs_modulus_girder": 0,
                                        "number_of_aggregates": number_of_aggregates,
                                        "youngs_modulus_aggregate": 0,
@@ -107,30 +114,38 @@ if __name__ == "__main__":
 
                 parameters_dict = check_default_parameters(analysis_parameters,
                                                            default_parameters)
-                print(parameters_dict)
+                logging.info('the parameters values are ', str(parameters_dict))
+
+                subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae',
+                                'noGUI=abq_generate_model.py', '--', str(coding),
+                                subfolder_path, str(parameters_dict)])
+
+                os.chdir(parent_path)
                 try:
-                    subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae',
-                                    'noGUI=abq_generate_model.py', '--', str(coding),
-                                    second_level_subfolder_path, str(parameters_dict)])
-                except:
-                    text_create('error.txt', str(parameters_dict))
+                    if os.path.exists(os.path.join(subfolder_path, 'Job-'+str(coding)+'.inp')):
+                        logging.info("Job-"+str(coding)+".inp file exists!")
+                    else:
+                        raise Warning('Error occurred! Job-'+str(coding)+'.inp file not exists! parameters are'
+                                      + str(parameters_dict))
+                except Warning:
+                    logger.warning(traceback.format_exc())
                     continue
 
-            for sequence in np.arange(1,len(parameter_switcher["number_of_aggregates"]) + 1, 3):
-                os.chdir(second_level_subfolder_path)
+            for sequence in np.arange(1, len(parameter_switcher["number_of_aggregates"]) + 1, 3):
+                os.chdir(subfolder_path)
                 try:
                     subprocess.run('/prog/abaqus/2020/bin/abaqus interactive job=Job-' + str(sequence) + '.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit '
                                     '& /prog/abaqus/2020/bin/abaqus interactive job=Job-' + str(sequence + 1) + '.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit '
                                         '& /prog/abaqus/2020/bin/abaqus interactive job=Job-' + str(sequence + 2) + '.inp cpus=3 domains=3 mp_mode=threads parallel=domain double=explicit',
                                    shell=True, check=True)
                 except:
-                    text_create('error.txt', str('Job-'+str(sequence)+'failed'))
+                    logger.warning(traceback.format_exc())
                     continue
 
             for sequence1 in np.arange(1, len(parameter_switcher["number_of_aggregates"]) + 1, 1):
                 os.chdir(parent_path)
                 subprocess.run(['/prog/abaqus/2020/bin/abaqus', 'cae', 'noGUI=abq_result_export.py', '--',
-                                str(sequence1), second_level_subfolder_path])
+                                str(sequence1), subfolder_path])
 
     endtime = datetime.datetime.now()
-    print('runtime =', endtime - starttime)
+    logging.info('runtime =', endtime - starttime)
