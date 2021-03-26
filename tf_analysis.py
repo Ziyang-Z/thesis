@@ -270,7 +270,7 @@ def main_position_analysis(file_path, frequency_min, frequency_max, height_min):
             amplitude_position_peak.append(register)
             print(amplitude_position_peak)
         plot_position(position_array, amplitude_position_peak, file_path,
-                      path_array1[-1]+',frequency range:'+str(frequency_min)+'~'+str(frequency_max)+'Hz')
+                      file_path[-1]+',frequency range:'+str(frequency_min)+'~'+str(frequency_max)+'Hz')
     # amplitude_position_peak = []
     # for array in amplitude_position_array:
     #     register = list(map(lambda x: x[0], array))
@@ -323,7 +323,7 @@ if __name__ == '__main__':
     path_array1 = [601, 602, 603, 604, 605, 606, 'size:0.006, evenly, number of aggregates:0~500']
     path_array2 = [5E9, 8E9, 11E9, 14E9, 17E9, 20E9, "young's modulus of girder (step:3E9)"]
 
-    parameter_range = path_array[:6]
+    parameter_range = path_array1[:6]
 
     node_array = [5]
     lower_frequency = 0
