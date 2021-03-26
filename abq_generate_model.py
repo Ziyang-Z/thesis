@@ -286,7 +286,7 @@ if __name__ == '__main__':
     density_girder = 2400.0
     alpha_damping_girder = 12.5651
     beta_damping_girder = 1.273E-8
-    mesh_size_aggregate = 0.002
+    mesh_size_aggregate = 0.004
     density_gravel = 2860
 
     time_step = 1E-6
@@ -315,10 +315,10 @@ if __name__ == '__main__':
         logging.info("no aggregates!")
     else:
         aggregates_insert = True
-        if parameter_dict["position_of_aggregates"] == 0:
-            grid_list = cg.evenly_grid(parameters_dict["number_of_aggregates"])
+        if parameters_dict["position_of_aggregates"] == 0:
+            grid_list = cg.evenly_grid(int(parameters_dict["number_of_aggregates"]))
         else:
-            grid_list = cg.random_grid(parameters_dict["number_of_aggregates"])
+            grid_list = cg.random_grid(int(parameters_dict["number_of_aggregates"]))
 
     coding = sys.argv[-3]
     main(path_work, coding)

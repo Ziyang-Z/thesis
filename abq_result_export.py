@@ -97,7 +97,6 @@ def save_output_data_csv(path_odb, csv_save_path):
             writer.writerow(row)
         print("Write data sucessful")
         file1.close()
-        s = s + 1
 
         try:
             if os.path.exists(os.path.join(csv_save_path, 'output-' + str(s) + '.csv')):
@@ -109,7 +108,7 @@ def save_output_data_csv(path_odb, csv_save_path):
         except Warning:
             logger.warning(traceback.format_exc())
             continue
-
+        s = s + 1
 
 # =============================================================================
 # This code is for the calculation and storage of the transfer functions.
@@ -203,17 +202,8 @@ def save_transfer_function(csv_save_path, magnitude_list):
 
 def main(parameter_analysis_name, sequence):
     starttime = datetime.datetime.now()
-
     path_odb = odb_path(parameter_analysis_name, sequence)
     csv_save_path = create_folder(sequence)
-
-    logging.basicConfig(filename='output-log.txt', level=logging.DEBUG,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
-    file_handle = logging.FileHandler('error.log', 'a')
-    file_handle.setFormatter(logging.Formatter(fmt='%(asctime)s - %(name)s - %(levelname)s - %(module)s: %(message)s',))
-    logger = logging.Logger('s1', level=logging.WARNING)
-    logger.addHandler(file_handle)
-
     save_output_data_csv(path_odb, csv_save_path)
     logging.info('All data output complete!')
 
@@ -245,5 +235,13 @@ if __name__ == '__main__':
 
     parameter_analysis_path = sys.argv[-1]
     sequence = sys.argv[-2]
+    os.chdir(parameter_analysis_path)
+
+    logging.basicConfig(filename='output-log.txt', level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+    file_handle = logging.FileHandler('error.log', 'a')
+    file_handle.setFormatter(logging.Formatter(fmt='%(asctime)s - %(name)s - %(levelname)s - %(module)s: %(message)s',))
+    logger = logging.Logger('s1', level=logging.WARNING)
+    logger.addHandler(file_handle)
 
     main(parameter_analysis_path, sequence)
