@@ -57,7 +57,6 @@ def import_specific_node_tf(path, node):
         reader = csv.reader(csvfile)
         num = len(nl.main())
         for i, rows in enumerate(reader):
-
             if i == node:
                 row = rows
                 amplitude = [float(i) for i in row]
@@ -69,22 +68,25 @@ def import_specific_node_tf(path, node):
     return frequency, amplitude
 
 
-def plot_tf(path_array, node_array):
-    for i in node_array:
-        fig, ax = plt.subplots()
-        # make a little extra space between the subplots
-        fig.subplots_adjust(hspace=0.5)
-        for j in path_array[0:-1]:
-            X, Y = import_specific_node_tf('C:/Users/ZZY/Desktop/tf_'+str(j)+'.csv', i)
-            ax.plot(X, Y, label=str(j))
-        ax.set_xlabel('Frequency(Hz)', fontsize=20)
-        ax.set_ylabel('Magnitude', fontsize=20)
-        ax.grid(True)
-        ax.legend()
-        plt.title('at node_' + str(i) + ', parameter:' + path_array[-1])
-        plt.xscale('log')
-        plt.xticks(fontsize=20)
-        plt.yticks(fontsize=20)
+def calculate_dB(signal):
+    signal_dB = list(map(lambda x: 20 * math.log10(x), signal))
+    return signal_dB
+
+
+def plot_tf(X, Y, node_position, description):
+    fig, ax = plt.subplots()
+    # make a little extra space between the subplots
+    fig.subplots_adjust(hspace=0.5)
+    for y in Y:
+        ax.plot(X, y[0:-1], label=str(y[-1]))
+        plt.title('at node_' + str(node_position) + ', parameter:' + description)
+    ax.set_xlabel('Frequency(Hz)', fontsize=20)
+    ax.set_ylabel('Magnitude', fontsize=20)
+    ax.grid(True)
+    ax.legend()
+    plt.xscale('log')
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
 
 
 # ==========================================================================================================
@@ -143,7 +145,7 @@ def peak_analysis(path_array, node_pos, frequency_range_low, frequency_range_hig
     return peak_frequency, peak_amplitude
 
 
-def plot_peak(x, peak_frequency, peak_amplitude, node_pos, type=''):
+def plot_peak(x, peak_frequency, peak_amplitude, node_pos, parameter, type=''):
     if type == 'peaks':
         fig, ax = plt.subplots(2, 1)
         # make a little extra space between the subplots
@@ -151,28 +153,27 @@ def plot_peak(x, peak_frequency, peak_amplitude, node_pos, type=''):
 
         ax[0].plot(x, peak_frequency)
         # ax[0].set_xlim(0, 0.0005)
-        ax[0].set_xlabel("number of gravels", fontsize=20)
+        ax[0].set_xlabel(parameter, fontsize=20)
         ax[0].set_ylabel('frequency(Hz)', fontsize=20)
         ax[0].grid(True)
-        plt.title("the peak frequency on different number of gravels at " + str(node_pos*0.1+0.05) + "!")
+        plt.title("the peak frequency and magnitude on different " + parameter + " at " + str(node_pos*0.1+0.05) + "m!")
         plt.xticks(fontsize=20)
         plt.yticks(fontsize=20)
 
         ax[1].plot(x, peak_amplitude)
         plt.xticks(fontsize=20)
         plt.yticks(fontsize=20)
-        plt.title("the peak frequency on different number of gravels at " + str(node_pos*0.1+0.05) + "!")
-        ax[1].set_xlabel("young's modulus", fontsize=20)
+        ax[1].set_xlabel(parameter, fontsize=20)
         ax[1].set_ylabel('magnitude', fontsize=20)
 
     if type == 'specific frequency':
         fig, ax = plt.subplots()
         ax.plot(x, peak_amplitude)
         # ax[0].set_xlim(0, 0.0005)
-        ax.set_xlabel("young's modulus(Pa)", fontsize=20)
+        ax.set_xlabel(parameter, fontsize=20)
         ax.set_ylabel('magnitude', fontsize=20)
         ax.grid(True)
-        plt.title("the amplitude on specific frequency on different young's modulus!")
+        plt.title("the amplitude on specific frequency on different " + parameter)
         plt.xticks(fontsize=20)
         plt.yticks(fontsize=20)
 
@@ -183,7 +184,6 @@ def calculate_dft(signal):
     magnitude = 2/len(dis_fft)*np.abs(dis_fft[0:len(dis_fft) // 2])
 
     frequency = scipy.fftpack.fftfreq(len(dis_fft), time_step)[:len(dis_fft) // 2]
-
     return frequency, magnitude
 
 
@@ -229,7 +229,7 @@ def position_analysis(f, mag, frequency_min, frequency_max, height_min):
     return peak_height
 
 
-def plot_position(X, Y, label, sequence):
+def plot_position(X, Y, label, description):
     fig, ax = plt.subplots()
     # make a little extra space between the subplots
     fig.subplots_adjust(hspace=0.5)
@@ -241,7 +241,7 @@ def plot_position(X, Y, label, sequence):
     ax.set_ylabel('Magnitude', fontsize=20)
     ax.grid(True)
     ax.legend()
-    plt.title('size:6mm, evenly distributed, number of aggregates:0~500, peak NO.' + str(sequence+1))
+    plt.title(description)
     # plt.xscale('log')
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
@@ -253,7 +253,7 @@ def main_position_analysis(file_path, frequency_min, frequency_max, height_min):
     position_array = list(map(lambda x: x/2*0.1+0.05, node_range))
     amplitude_position_array = []
     # frequency_position_array = []
-    for path in file_path:
+    for path in file_path[0:-1]:
         amplitude_position = []
         # frequency_position = []
         for num in node_range:
@@ -263,19 +263,20 @@ def main_position_analysis(file_path, frequency_min, frequency_max, height_min):
             # frequency_position.append(frequency)
         amplitude_position_array.append(amplitude_position)
         # frequency_position_array.append(frequency_position)
-    # for i in np.arange(0, len(amplitude_position_array[0][0]), 1):
-    #     amplitude_position_peak = []
-    #     for array in amplitude_position_array:
-    #         register = list(map(lambda x: x[i], array))
-    #         amplitude_position_peak.append(register)
-    #         print(amplitude_position_peak)
-    #     plot_position(position_array, amplitude_position_peak, file_path, i)
-    amplitude_position_peak = []
-    for array in amplitude_position_array:
-        register = list(map(lambda x: x[0], array))
-        amplitude_position_peak.append(register)
-        print(amplitude_position_peak)
-    plot_position(position_array, amplitude_position_peak, file_path, 0)
+    for i in np.arange(0, len(amplitude_position_array[0][0]), 1):
+        amplitude_position_peak = []
+        for array in amplitude_position_array:
+            register = list(map(lambda x: x[i], array))
+            amplitude_position_peak.append(register)
+            print(amplitude_position_peak)
+        plot_position(position_array, amplitude_position_peak, file_path,
+                      path_array1[-1]+',frequency range:'+str(frequency_min)+'~'+str(frequency_max)+'Hz')
+    # amplitude_position_peak = []
+    # for array in amplitude_position_array:
+    #     register = list(map(lambda x: x[0], array))
+    #     amplitude_position_peak.append(register)
+    #     print(amplitude_position_peak)
+    # plot_position(position_array, amplitude_position_peak, file_path, 0)
 
 
 def main_signal_analysis(path_signal_array, type=''):
@@ -293,38 +294,48 @@ def main_signal_analysis(path_signal_array, type=''):
 
 
 def main_tf_analysis(path_array, node_array):
-    plot_tf(path_array, node_array)
+    for i in node_array:
+        x_data = []
+        y_data = []
+        y_dB_data = []
+        for j in path_array[0:-1]:
+            X, Y = import_specific_node_tf('C:/Users/ZZY/Desktop/tf_'+str(j)+'.csv', i)
+            y_dB = calculate_dB(Y)
+            y_dB.append(j)
+            Y.append(j)
+            y_data.append(Y)
+            y_dB_data.append(y_dB)
+            x_data.append(X)
+        plot_tf(x_data[0], y_data, i, path_array[-1])
+        plot_tf(x_data[0], y_dB_data, i, path_array[-1])
 
 
 def main_peaks(path_array, node_pos, frequency_range_low, frequency_range_high, height_min):
-    peak_frequency, peak_amplitude = peak_analysis(path_array, node_pos, frequency_range_low, frequency_range_high, height_min)
-    plot_peak(parameter_range, peak_frequency, peak_amplitude, node_pos, type='peaks')
+    peak_frequency, peak_amplitude = peak_analysis(path_array[0:-1], node_pos,
+                                                   frequency_range_low, frequency_range_high, height_min)
+    plot_peak(parameter_range, peak_frequency, peak_amplitude, node_pos, path_array[-1], type='peaks')
     plt.show()
 
 
 if __name__ == '__main__':
     path_signal = 'C:/Users/ZZY/Desktop/halfsine.csv'
 
-    path_array1 = [601, 602, 603, 604, 605, 606, 'size:0.006, evenly, num:0~500']
-    path_array2 = [611, 612, 613, 614, 615, 616, 'size:0.006, randomly, num:0~500']
-    path_array3 = [701, 702, 703, 704, 705, 706, 'size:0.007, evenly, num:0~500']
-    path_array4 = [711, 712, 713, 714, 715, 716, 'size:0.007, randomly, num:0~500']
-    parameter_range = [0, 100, 200, 300, 400, 500]
-    # path_array5 = [601, 701, 'size:0.006, evenly, num:0~500']
-    node_array = 3
-    lower_frequency = 1.52*10**4
-    upper_frequency = 1.59*10**4
+    path_array1 = [601, 602, 603, 604, 605, 606, 'size:0.006, evenly, number of aggregates:0~500']
+    path_array2 = [5E9, 8E9, 11E9, 14E9, 17E9, 20E9, "young's modulus of girder (step:3E9)"]
+
+    parameter_range = path_array[:6]
+
+    node_array = [5]
+    lower_frequency = 0
+    upper_frequency = 10**2
     min_height_peak = 2*10**-9
 
-    # main_tf_analysis(path_array1, node_array)
-    # main_tf(path_array2, node_array)
-    # main_tf(path_array3, node_array)
-    # main_tf(path_array4, node_array)
-    # main_position_analysis([601, 602, 603, 604, 605, 606], lower_frequency, upper_frequency, min_height_peak)
+    # main_tf_analysis(path_array2, node_array)
+
+    main_position_analysis(path_array2, lower_frequency, upper_frequency, min_height_peak)
     # main_signal_analysis(['C:/Users/ZZY/Desktop/output-29.csv'], type='output')
     # main_signal_analysis(['C:/Users/ZZY/Desktop/output-28.csv'], type='output')
-    main_peaks([601, 602, 603, 604, 605, 606], 10, lower_frequency, upper_frequency, min_height_peak)
-    main_peaks([601, 602, 603, 604, 605, 606], 11, lower_frequency, upper_frequency, min_height_peak)
+    # main_peaks(path_array1, 11, lower_frequency, upper_frequency, min_height_peak)
     plt.show()
 
 
