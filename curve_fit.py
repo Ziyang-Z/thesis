@@ -13,34 +13,55 @@ import os
 
 
 def import_data(path, node):
+    total = sum(1 for line in open(path))
     with open(path, 'rt', encoding="utf-8") as csvfile:
         reader = csv.reader(csvfile)
         for i, rows in enumerate(reader):
             if i == node:
                 row = rows
                 data = [float(i) for i in row]
-    return data
+    return data, total
 
 
-def func(x, k, a, b):
-    # return k * np.sqrt(x) + b
-    # return k*x + b
-    # return k*np.exp(a*x) + b
-    # return k*np.exp(-a*x) + b
-    return k*a**x + b
+def sine_function(x, k, a, b):
+    return k*np.sin(a*x) + b
 
 
-def curve_fitting(xdata, ydata):
-    popt, _ = curve_fit(func, xdata, ydata)
-    print('the coefficients are ', popt)
-    return popt
+def square_root_function(x, k, a, b):
+    return k * np.sqrt(x) + b
 
 
-def plot(x, y, coe):
+def linear_function(x, k, a, b):
+    return k*x + b
+
+
+def exponential_function(x, k, a, b):
+    return k*np.exp(a*x) + b
+
+
+def curve_fitting(function, xdata, ydata):
+    coe, _ = curve_fit(function, xdata, ydata)
+    print('the coefficients are ', coe)
+
+    y_fitting = function(xdata, coe[0], coe[1], coe[2])
+    error_rate = (ydata - y_fitting)/ydata
+    average = sum(np.abs(error_rate)) / len(error_rate)
+    print('the average error rate is ', average)
+
+    y_value_ave = sum(ydata)/len(ydata)
+    sstot = sum(list(map(lambda x: (x-y_value_ave)**2, ydata)))
+    err = (ydata-y_fitting)
+    ssres = sum(list(map(lambda x: x**2, err)))
+    r2 = 1 - ssres/sstot
+    print(r2)
+    return coe, r2
+
+
+def plot(x, y, function, coe):
     fig, ax = plt.subplots()
     ax.plot(x, y, label='Original curve')
-    y1 = func(x, coe[0], coe[1], coe[2])
-    ax.plot(x, y1, label='Fitted curve')
+    y_fitted = function(x, coe[0], coe[1], coe[2])
+    ax.plot(x, y_fitted, label='Fitted curve')
     ax.set_ylabel('Amplitude', fontsize=20)
     ax.set_title('fitting_coefficient', fontsize=20)
     ax.set_xlabel('pr (normalization)', fontsize=20)
@@ -50,35 +71,42 @@ def plot(x, y, coe):
     plt.yticks(fontsize=20)
 
 
-def main(path):
-    x_value = import_data(path, 0)
+def main(path, row_start):
+    x_value, data_number = import_data(path, 0)
     x_value = list(map(lambda x: x/x_value[0], x_value))            # standardization
     print('x data are ', x_value)
-    y_value = import_data(path, 1)                                # 0 is for frequency, 1 is for amplitude.
-    print('y data are ', y_value)
-    f_ave = sum(y_value)/len(y_value)
-    print("average frequency is ", f_ave)
+    for i in np.arange(row_start, data_number, 2):
+        y_value, none = import_data(path, i)
+        print('y data are ', y_value)
 
-    coe = curve_fitting(x_value, y_value)
-    y_fitting = func(np.array(x_value), coe[0], coe[1], coe[2])
-    # print('the fitted y data are', y_fitting)
-    error_rate = (y_value - y_fitting)/y_value
-    average = sum(np.abs(error_rate)) / len(error_rate)
-    # print('the error rate is like ', error_rate)
-    print('the average error rate is ', average)
+        functions_array = [linear_function, square_root_function, exponential_function, sine_function]
+        r2_default = 0
+        sequence = 0
+        for function in functions_array:
+            sequence += 1
+            try:
+                coe, r2 = curve_fitting(function, np.array(x_value), np.array(y_value))
+                if r2 >= r2_default:
+                    R2 = r2
+                    coefficient = coe
+                    better_function = function
+                    r2_default = r2
+                if sequence == len(functions_array):
+                    print("the better fitted function is ", better_function)
+                    print("its coefficients are ", coefficient)
+                    print("its R2 is ", R2)
+                    plot(np.array(x_value), np.array(y_value), better_function, np.array(coefficient))
+                    plt.show()
 
-    y_value_ave = sum(y_value)/len(y_value)
-    sstot = sum(list(map(lambda x: (x-y_value_ave)**2, y_value)))
-    e = (y_value-y_fitting)
-    ssres = sum(list(map(lambda x: x**2, e)))
-    r2 = 1 - ssres/sstot
-    print(r2)
-
-    plot(np.array(x_value), np.array(y_value), coe)
-    plt.show()
+                else:
+                    r2_default = r2
+            except RuntimeError:
+                print("this function don't fit our data: ", function)
+                continue
 
 
 if __name__ == '__main__':
-    path_csv = 'C:/Users/ZZY/Desktop/size_agg/medium/medium_f5_data.csv'
-
-    main(path_csv)
+    path_csv = 'C:/Users/ZZY/Desktop/pr_feiner/medium/medium_f2_data.csv'
+    frequency_row = 1
+    amplitude_row = 2
+    main(path_csv, amplitude_row)
